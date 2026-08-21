@@ -1,0 +1,42 @@
+name: Compilation Windows
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restaurer
+        run: dotnet restore Biblideo.sln
+
+      - name: Compiler
+        run: dotnet build Biblideo.sln --configuration Release --no-restore
+
+      - name: Contrôles métier
+        run: dotnet run --project tests/Biblideo.Core.SmokeTests/Biblideo.Core.SmokeTests.csproj --configuration Release --no-build
+
+      - name: Produire l'application autonome
+        run: dotnet publish src/Biblideo.App/Biblideo.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/Biblideo-win-x64
+
+      - name: Publier l'artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Biblideo-win-x64
+          path: artifacts/Biblideo-win-x64/
+          if-no-files-found: error

@@ -1,0 +1,18 @@
+<Window x:Class="Biblideo.App.Views.ReportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Rapport de simulation Biblidéo" Height="850" Width="1250" MinHeight="650" MinWidth="900" WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Border Background="#09172A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="18,0">
+                <TextBlock Text="Rapport HTML · aucune action effectuée" VerticalAlignment="Center" FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Exporter en HTML" Style="{StaticResource PrimaryButton}" Click="ExportButton_Click" />
+                    <Button Content="Fermer" Margin="8,0,0,0" Click="CloseButton_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <WebBrowser x:Name="ReportBrowser" Grid.Row="1" />
+    </Grid>
+</Window>
