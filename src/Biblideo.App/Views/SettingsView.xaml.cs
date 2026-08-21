@@ -78,19 +78,23 @@ public partial class SettingsView : UserControl
 
     private async void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        _settings.SourceScPath = SourceScText.Text.Trim();
-        _settings.SourceEpPath = SourceEpText.Text.Trim();
-        _settings.ClientsRootPath = ClientsRootText.Text.Trim();
-        _settings.IdeoSolutionsRootPath = IdeoRootText.Text.Trim();
-        _settings.ProductStagingPath = ProductStagingText.Text.Trim();
-        _settings.ProductArchivesPath = ProductArchivesText.Text.Trim();
-        _settings.ReportsPath = ReportsText.Text.Trim();
-        _settings.MonthlyPackagesRootPath = IdeoRootText.Text.Trim();
-        _settings.SevenZipExecutablePath = SevenZipText.Text.Trim();
+        var stagedSettings = new AppSettings
+        {
+            SharedSettingsPath = SharedSettingsText.Text.Trim(),
+            SourceScPath = SourceScText.Text.Trim(),
+            SourceEpPath = SourceEpText.Text.Trim(),
+            ClientsRootPath = ClientsRootText.Text.Trim(),
+            IdeoSolutionsRootPath = IdeoRootText.Text.Trim(),
+            ProductStagingPath = ProductStagingText.Text.Trim(),
+            ProductArchivesPath = ProductArchivesText.Text.Trim(),
+            ReportsPath = ReportsText.Text.Trim(),
+            MonthlyPackagesRootPath = IdeoRootText.Text.Trim(),
+            SevenZipExecutablePath = SevenZipText.Text.Trim()
+        };
         try
         {
-            await _settingsService.SaveAsync(_settings, SharedSettingsText.Text.Trim());
-            _saved(_settings);
+            await _settingsService.SaveAsync(stagedSettings, stagedSettings.SharedSettingsPath);
+            _saved(stagedSettings);
             TestResultText.Text = "Configuration partagée enregistrée · copie locale actualisée.";
             TestResultText.Foreground = System.Windows.Media.Brushes.LightGreen;
         }

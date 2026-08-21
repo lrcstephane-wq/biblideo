@@ -113,11 +113,13 @@ public sealed class SettingsService
         {
             var backupDirectory = Path.Combine(directory, "Backups");
             Directory.CreateDirectory(backupDirectory);
-            var backupPath = Path.Combine(backupDirectory, $"biblideo.settings.{DateTime.Now:yyyyMMdd-HHmmss}.json");
+            var backupPath = Path.Combine(
+                backupDirectory,
+                $"biblideo.settings.{DateTime.Now:yyyyMMdd-HHmmss-fff}.{Environment.MachineName}.json");
             File.Copy(path, backupPath, overwrite: false);
         }
 
-        var tempPath = path + $".{Environment.MachineName}.tmp";
+        var tempPath = path + $".{Environment.MachineName}.{Guid.NewGuid():N}.tmp";
         await using (var stream = File.Create(tempPath))
         {
             await JsonSerializer.SerializeAsync(stream, settings, JsonOptions, cancellationToken);
