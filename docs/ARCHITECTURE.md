@@ -9,11 +9,27 @@ Les services de la V0 n'exposent aucune méthode de copie, déplacement, suppres
 1. Choix exclusif de la variante SC ou EP.
 2. Lecture de la source paramétrée correspondante.
 3. Reconstruction `bibliothèque > famille > type > composant`.
-4. Sélection d'un ou plusieurs `.top` dans plusieurs emplacements.
-5. Résolution des fichiers associés.
-6. Ajout virtuel des icônes de chaque bibliothèque concernée.
-7. Contrôles du modèle et du nom du package.
-8. Affichage du rapport HTML sans écriture métier.
+4. Sélection native d'un ou plusieurs `.top` avec `Ctrl` ou `Maj`, dans plusieurs emplacements.
+5. Conservation de la sélection dans un panier persistant pendant les changements de filtre ou de bibliothèque.
+6. Résolution des fichiers associés.
+7. Ajout virtuel des icônes de chaque bibliothèque concernée.
+8. Contrôles du modèle et du nom du package.
+9. Affichage du rapport HTML sans écriture métier.
+
+## Configuration partagée
+
+- fichier JSON réseau par défaut : `C:\Cloud\02_Idéo\99_Application\Biblideo\Config\biblideo.settings.json` ;
+- emplacement paramétrable depuis l’interface ;
+- fichier local `bootstrap.json` contenant uniquement le chemin réseau choisi ;
+- copie locale de secours utilisée en lecture seule si le partage est indisponible ;
+- écriture atomique et sauvegarde horodatée du fichier précédent.
+
+## Distribution
+
+- les compilations de branche produisent une archive Windows portable de test ;
+- les tags `vX.Y.Z` produisent une Release GitHub Velopack installable ;
+- une installation Velopack recherche les mises à jour du dépôt public au démarrage ;
+- téléchargement et redémarrage restent soumis à confirmation de l’utilisateur.
 
 ## Règles d'association
 

@@ -1,0 +1,47 @@
+name: Publication Windows
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Déterminer la version
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publier l'application
+        run: dotnet publish src/Biblideo.App/Biblideo.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:Version=${{ steps.version.outputs.value }} --output publish
+
+      - name: Installer Velopack
+        run: dotnet tool install -g vpk --version 1.0.1
+
+      - name: Récupérer la version précédente
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token $env:GITHUB_TOKEN
+
+      - name: Créer les packages de mise à jour
+        run: vpk pack --packId IdeoSolutions.Biblideo --packVersion ${{ steps.version.outputs.value }} --packDir publish --mainExe Biblideo.exe --packTitle "Biblidéo"
+
+      - name: Publier la GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: vpk upload github --repoUrl https://github.com/${{ github.repository }} --token $env:GITHUB_TOKEN --publish --releaseName "Biblidéo ${{ steps.version.outputs.value }}" --tag ${{ github.ref_name }}

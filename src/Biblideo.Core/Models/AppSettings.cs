@@ -4,6 +4,9 @@ namespace Biblideo.Core.Models;
 
 public sealed class AppSettings
 {
+    [JsonIgnore]
+    public string SharedSettingsPath { get; set; } = SettingsDefaults.SharedSettingsPath;
+
     public string SourceScPath { get; set; } = @"C:\Cloud\95_TSV6\Missler_622\BT_Group622\Bibliotheque";
     public string SourceEpPath { get; set; } = @"C:\Cloud\95_TSV6\Missler_622\EP_Biblideo_Chant_Grp622\Bibliotheque";
     public string ClientsRootPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo";
@@ -25,4 +28,10 @@ public sealed class AppSettings
 
     public string GetModelPath(LibraryVariant variant) =>
         variant == LibraryVariant.SC ? ScModelPath : EpModelPath;
+}
+
+public static class SettingsDefaults
+{
+    public const string ApplicationDataRoot = @"C:\Cloud\02_Idéo\99_Application\Biblideo";
+    public const string SharedSettingsPath = ApplicationDataRoot + @"\Config\biblideo.settings.json";
 }

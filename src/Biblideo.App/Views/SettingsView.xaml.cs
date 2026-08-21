@@ -24,6 +24,7 @@ public partial class SettingsView : UserControl
 
     private void LoadValues()
     {
+        SharedSettingsText.Text = _settings.SharedSettingsPath;
         SourceScText.Text = _settings.SourceScPath;
         SourceEpText.Text = _settings.SourceEpPath;
         ClientsRootText.Text = _settings.ClientsRootPath;
@@ -32,6 +33,21 @@ public partial class SettingsView : UserControl
         ProductArchivesText.Text = _settings.ProductArchivesPath;
         ReportsText.Text = _settings.ReportsPath;
         SevenZipText.Text = _settings.SevenZipExecutablePath;
+    }
+
+    private void BrowseSharedSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var currentDirectory = Path.GetDirectoryName(SharedSettingsText.Text);
+        var dialog = new SaveFileDialog
+        {
+            Title = "Choisir le fichier de configuration partagée",
+            Filter = "Configuration JSON|*.json",
+            FileName = "biblideo.settings.json",
+            InitialDirectory = currentDirectory is not null && Directory.Exists(currentDirectory)
+                ? currentDirectory
+                : SettingsDefaults.ApplicationDataRoot
+        };
+        if (dialog.ShowDialog() == true) SharedSettingsText.Text = dialog.FileName;
     }
 
     private void BrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -52,8 +68,10 @@ public partial class SettingsView : UserControl
         var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text };
         var validFolders = folderPaths.Count(Directory.Exists);
         var sevenZipValid = File.Exists(SevenZipText.Text);
-        TestResultText.Text = $"{validFolders}/{folderPaths.Length} dossiers accessibles · 7-Zip {(sevenZipValid ? "détecté" : "introuvable")}";
-        TestResultText.Foreground = validFolders == folderPaths.Length && sevenZipValid
+        var sharedDirectory = Path.GetDirectoryName(SharedSettingsText.Text.Trim());
+        var sharedAvailable = sharedDirectory is not null && Directory.Exists(sharedDirectory);
+        TestResultText.Text = $"Configuration partagée {(sharedAvailable ? "accessible" : "inaccessible")} · {validFolders}/{folderPaths.Length} dossiers accessibles · 7-Zip {(sevenZipValid ? "détecté" : "introuvable")}";
+        TestResultText.Foreground = sharedAvailable && validFolders == folderPaths.Length && sevenZipValid
             ? System.Windows.Media.Brushes.LightGreen
             : System.Windows.Media.Brushes.Khaki;
     }
@@ -69,9 +87,22 @@ public partial class SettingsView : UserControl
         _settings.ReportsPath = ReportsText.Text.Trim();
         _settings.MonthlyPackagesRootPath = IdeoRootText.Text.Trim();
         _settings.SevenZipExecutablePath = SevenZipText.Text.Trim();
-        await _settingsService.SaveAsync(_settings);
-        _saved(_settings);
-        TestResultText.Text = "Paramètres enregistrés sur ce poste.";
-        TestResultText.Foreground = System.Windows.Media.Brushes.LightGreen;
+        try
+        {
+            await _settingsService.SaveAsync(_settings, SharedSettingsText.Text.Trim());
+            _saved(_settings);
+            TestResultText.Text = "Configuration partagée enregistrée · copie locale actualisée.";
+            TestResultText.Foreground = System.Windows.Media.Brushes.LightGreen;
+        }
+        catch (Exception exception)
+        {
+            TestResultText.Text = "Enregistrement impossible sur le réseau.";
+            TestResultText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+            MessageBox.Show(
+                $"La configuration partagée n’a pas été modifiée.\n\n{exception.Message}",
+                "Enregistrement impossible",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 }

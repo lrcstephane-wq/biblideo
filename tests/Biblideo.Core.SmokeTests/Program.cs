@@ -17,6 +17,29 @@ Check(NamingService.BuildExecutableName(productName) == "Caisson_Basique.exe", "
 Check(NamingService.IsValidMonthlyName("2609_SC", LibraryVariant.SC), "2609_SC doit être valide pour SC.");
 Check(!NamingService.IsValidMonthlyName("2609_EP", LibraryVariant.SC), "Une opération SC ne doit jamais accepter EP.");
 
+var testRoot = Path.Combine(Path.GetTempPath(), "Biblideo-SmokeTests", Guid.NewGuid().ToString("N"));
+var sharedPath = Path.Combine(testRoot, "shared", "biblideo.settings.json");
+var localPath = Path.Combine(testRoot, "local");
+try
+{
+    var settingsService = new SettingsService(localPath);
+    var settings = new AppSettings { SourceScPath = @"C:\Test\SourceSC" };
+    await settingsService.SaveAsync(settings, sharedPath);
+    var loaded = await settingsService.LoadAsync();
+    Check(loaded.SourceScPath == settings.SourceScPath, "La configuration partagée doit être relue.");
+    Check(loaded.SharedSettingsPath == sharedPath, "Le poste doit conserver l’emplacement de la configuration partagée.");
+    Check(File.Exists(settingsService.CacheFilePath), "Une copie locale de la configuration doit être créée.");
+
+    File.Delete(sharedPath);
+    var cached = await settingsService.LoadAsync();
+    Check(settingsService.LastLoadUsedCache, "La copie locale doit être utilisée si le réseau est indisponible.");
+    Check(cached.SourceScPath == settings.SourceScPath, "La copie locale doit conserver les réglages partagés.");
+}
+finally
+{
+    if (Directory.Exists(testRoot)) Directory.Delete(testRoot, recursive: true);
+}
+
 if (failures.Count > 0)
 {
     Console.Error.WriteLine(string.Join(Environment.NewLine, failures.Select(failure => "ECHEC: " + failure)));

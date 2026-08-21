@@ -8,6 +8,8 @@ La V0 fonctionne en **simulation stricte** :
 
 - lecture des bibliothèques SC ou EP ;
 - sélection persistante de plusieurs composants `.top` ;
+- sélection native avec `Ctrl` et `Maj`, conservée pendant la navigation entre bibliothèques ;
+- filtre actif par bibliothèque, famille ou type, avec panier récapitulatif ;
 - association automatique des `.top.png` et `.cat` ;
 - intégration prévue des `.bmp` et `icn*` des bibliothèques sélectionnées ;
 - exclusion des `.bak` et `.cfg` ;
@@ -24,14 +26,23 @@ La V0 ne crée, ne copie, ne déplace, ne renomme, ne compresse et ne supprime a
 - `src/Biblideo.App` : interface WPF Windows.
 - `tests/Biblideo.Core.SmokeTests` : contrôles métier sans dépendance externe.
 - `.github/workflows/build-windows.yml` : compilation et génération automatique de l'application Windows autonome.
+- `.github/workflows/release-windows.yml` : création des installateurs et mises à jour à partir des tags de version.
 
 ## Chemins
 
-Tous les chemins sont modifiables depuis **Paramètres**. Les valeurs sont enregistrées localement dans :
+Tous les chemins sont modifiables depuis **Paramètres**. La configuration métier partagée est enregistrée par défaut dans :
 
-`%LOCALAPPDATA%\Ideo Solutions\Biblideo\settings.json`
+`C:\Cloud\02_Idéo\99_Application\Biblideo\Config\biblideo.settings.json`
 
-Le bouton de test vérifie uniquement l'existence et l'accessibilité en lecture.
+Chaque poste ne conserve qu’un pointeur vers ce fichier et une copie locale de secours dans `%LOCALAPPDATA%\Ideo Solutions\Biblideo`. Le chemin du fichier partagé reste lui-même paramétrable. Une sauvegarde horodatée est créée avant chaque remplacement de la configuration existante.
+
+Le bouton de test vérifie l’accessibilité de la configuration, des dossiers métier et de 7-Zip sans modifier les données métier.
+
+## Mise à jour de l’application
+
+L’application vérifie au démarrage les versions publiées dans les Releases GitHub du dépôt public. Lorsqu’une version est disponible, un bouton apparaît dans la barre supérieure et demande confirmation avant téléchargement et redémarrage.
+
+La publication d’un tag `vX.Y.Z` déclenche la création automatique de l’installateur et des packages différentiels Velopack. Ce mécanisme est actif pour les versions installées ; l’archive Windows portable générée par la compilation reste destinée aux essais.
 
 ## Compiler localement
 

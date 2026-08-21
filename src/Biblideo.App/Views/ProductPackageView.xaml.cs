@@ -22,6 +22,8 @@ public partial class ProductPackageView : UserControl
     private LibraryScanResult? _scanResult;
     private LibraryFilterNode? _activeFilter;
     private int _nextCounter;
+    private bool _suppressSelectionSync;
+    private bool _suppressSelectionRefresh;
 
     public ProductPackageView(AppSettings settings)
     {
@@ -64,6 +66,7 @@ public partial class ProductPackageView : UserControl
             _rowsView.Filter = FilterRow;
             ComponentsGrid.ItemsSource = _rowsView;
             BuildLibraryTree();
+            RestoreVisibleSelection();
             StatusText.Text = $"{_rows.Count:N0} composants analysés · {_scanResult.IgnoredBakCount:N0} .bak ignorés · {_scanResult.IgnoredCfgCount:N0} .cfg ignorés";
         }
         catch (Exception exception)
@@ -82,27 +85,42 @@ public partial class ProductPackageView : UserControl
     private void BuildLibraryTree()
     {
         LibraryTree.Items.Clear();
-        var all = new LibraryFilterNode { Label = $"Toutes ({_rows.Count:N0})" };
+        var all = new LibraryFilterNode { Name = "Toutes", TotalCount = _rows.Count };
         LibraryTree.Items.Add(all);
 
         foreach (var libraryGroup in _rows.GroupBy(row => row.Library).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
         {
             var library = new LibraryFilterNode
             {
-                Label = $"{libraryGroup.Key} ({libraryGroup.Count():N0})",
-                Library = libraryGroup.Key
+                Name = libraryGroup.Key,
+                Library = libraryGroup.Key,
+                TotalCount = libraryGroup.Count()
             };
             foreach (var familyGroup in libraryGroup.GroupBy(row => row.Family).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
             {
-                library.Children.Add(new LibraryFilterNode
+                var family = new LibraryFilterNode
                 {
-                    Label = $"{familyGroup.Key} ({familyGroup.Count():N0})",
+                    Name = familyGroup.Key,
                     Library = libraryGroup.Key,
-                    Family = familyGroup.Key
-                });
+                    Family = familyGroup.Key,
+                    TotalCount = familyGroup.Count()
+                };
+                foreach (var typeGroup in familyGroup.GroupBy(row => row.Type).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    family.Children.Add(new LibraryFilterNode
+                    {
+                        Name = typeGroup.Key,
+                        Library = libraryGroup.Key,
+                        Family = familyGroup.Key,
+                        Type = typeGroup.Key,
+                        TotalCount = typeGroup.Count()
+                    });
+                }
+                library.Children.Add(family);
             }
             LibraryTree.Items.Add(library);
         }
+        RefreshTreeCounts();
     }
 
     private bool FilterRow(object item)
@@ -110,6 +128,7 @@ public partial class ProductPackageView : UserControl
         if (item is not ComponentRowViewModel row) return false;
         if (_activeFilter?.Library is { } library && !row.Library.Equals(library, StringComparison.OrdinalIgnoreCase)) return false;
         if (_activeFilter?.Family is { } family && !row.Family.Equals(family, StringComparison.OrdinalIgnoreCase)) return false;
+        if (_activeFilter?.Type is { } type && !row.Type.Equals(type, StringComparison.OrdinalIgnoreCase)) return false;
         var search = SearchText.Text.Trim();
         return search.Length == 0 ||
                row.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
@@ -121,40 +140,125 @@ public partial class ProductPackageView : UserControl
     private void LibraryTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         _activeFilter = e.NewValue as LibraryFilterNode;
-        _rowsView?.Refresh();
+        ActiveFilterText.Text = _activeFilter is null || _activeFilter.Library is null
+            ? "Vue : toutes les bibliothèques"
+            : $"Vue : {_activeFilter.Library}" +
+              (_activeFilter.Family is null ? string.Empty : $" › {_activeFilter.Family}") +
+              (_activeFilter.Type is null ? string.Empty : $" › {_activeFilter.Type}");
+        RefreshFilteredView();
     }
 
-    private void SearchText_TextChanged(object sender, TextChangedEventArgs e) => _rowsView?.Refresh();
-
-    private void ToggleSelectedRowsButton_Click(object sender, RoutedEventArgs e)
+    private void ResetLibraryFilterButton_Click(object sender, RoutedEventArgs e)
     {
-        var selectedRows = ComponentsGrid.SelectedItems.Cast<ComponentRowViewModel>().ToArray();
-        if (selectedRows.Length == 0 && _rowsView is not null)
+        _activeFilter = null;
+        LibraryTree.SelectedItemChanged -= LibraryTree_SelectedItemChanged;
+        if (LibraryTree.Items.Count > 0 && LibraryTree.ItemContainerGenerator.ContainerFromIndex(0) is TreeViewItem first)
         {
-            selectedRows = _rowsView.Cast<ComponentRowViewModel>().ToArray();
+            first.IsSelected = true;
         }
-        var shouldSelect = selectedRows.Any(row => !row.IsSelected);
-        foreach (var row in selectedRows) row.IsSelected = shouldSelect;
+        LibraryTree.SelectedItemChanged += LibraryTree_SelectedItemChanged;
+        ActiveFilterText.Text = "Vue : toutes les bibliothèques";
+        RefreshFilteredView();
+    }
+
+    private void SearchText_TextChanged(object sender, TextChangedEventArgs e) => RefreshFilteredView();
+
+    private void SelectVisibleButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rowsView is null) return;
+        _suppressSelectionRefresh = true;
+        try
+        {
+            foreach (var row in _rowsView.Cast<ComponentRowViewModel>()) row.IsSelected = true;
+        }
+        finally
+        {
+            _suppressSelectionRefresh = false;
+        }
+        RefreshSelectionSummary();
+        RestoreVisibleSelection();
+    }
+
+    private void ClearVisibleButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rowsView is null) return;
+        _suppressSelectionRefresh = true;
+        try
+        {
+            foreach (var row in _rowsView.Cast<ComponentRowViewModel>()) row.IsSelected = false;
+        }
+        finally
+        {
+            _suppressSelectionRefresh = false;
+        }
+        RefreshSelectionSummary();
+        RestoreVisibleSelection();
     }
 
     private void ClearSelectionButton_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var row in _rows) row.IsSelected = false;
+        _suppressSelectionRefresh = true;
+        try
+        {
+            foreach (var row in _rows) row.IsSelected = false;
+        }
+        finally
+        {
+            _suppressSelectionRefresh = false;
+        }
+        RefreshSelectionSummary();
+        RestoreVisibleSelection();
+    }
+
+    private void RemoveFromBasketButton_Click(object sender, RoutedEventArgs e)
+    {
+        _suppressSelectionRefresh = true;
+        try
+        {
+            foreach (var row in SelectionBasket.SelectedItems.Cast<ComponentRowViewModel>().ToArray())
+            {
+                row.IsSelected = false;
+            }
+        }
+        finally
+        {
+            _suppressSelectionRefresh = false;
+        }
+        RefreshSelectionSummary();
+        RestoreVisibleSelection();
     }
 
     private void Row_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ComponentRowViewModel.IsSelected)) RefreshSelectionSummary();
+        if (!_suppressSelectionRefresh && e.PropertyName == nameof(ComponentRowViewModel.IsSelected)) RefreshSelectionSummary();
     }
 
     private void RefreshSelectionSummary()
     {
         var selected = _rows.Where(row => row.IsSelected).ToArray();
         SelectedSummary.Text = $"{selected.Length:N0} .top · {selected.Sum(row => row.AssociatedCount):N0} fichier(s) associé(s)";
+        BasketCountText.Text = selected.Length.ToString("N0");
+        SelectionBasket.ItemsSource = selected;
+        RefreshTreeCounts();
     }
 
     private void ComponentsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_suppressSelectionSync)
+        {
+            _suppressSelectionRefresh = true;
+            try
+            {
+                foreach (var removed in e.RemovedItems.OfType<ComponentRowViewModel>()) removed.IsSelected = false;
+                foreach (var added in e.AddedItems.OfType<ComponentRowViewModel>()) added.IsSelected = true;
+            }
+            finally
+            {
+                _suppressSelectionRefresh = false;
+            }
+            RefreshSelectionSummary();
+        }
+
         if (ComponentsGrid.SelectedItem is not ComponentRowViewModel row)
         {
             ClearPreview();
@@ -184,6 +288,61 @@ public partial class ProductPackageView : UserControl
         catch
         {
             ClearPreview(keepDetails: true);
+        }
+    }
+
+    private void RefreshFilteredView()
+    {
+        if (_rowsView is null) return;
+        _suppressSelectionSync = true;
+        try
+        {
+            _rowsView.Refresh();
+            RestoreVisibleSelectionCore();
+        }
+        finally
+        {
+            _suppressSelectionSync = false;
+        }
+    }
+
+    private void RestoreVisibleSelection()
+    {
+        _suppressSelectionSync = true;
+        try
+        {
+            RestoreVisibleSelectionCore();
+        }
+        finally
+        {
+            _suppressSelectionSync = false;
+        }
+    }
+
+    private void RestoreVisibleSelectionCore()
+    {
+        ComponentsGrid.SelectedItems.Clear();
+        if (_rowsView is null) return;
+        foreach (var row in _rowsView.Cast<ComponentRowViewModel>().Where(item => item.IsSelected))
+        {
+            ComponentsGrid.SelectedItems.Add(row);
+        }
+    }
+
+    private void RefreshTreeCounts()
+    {
+        foreach (var root in LibraryTree.Items.OfType<LibraryFilterNode>())
+        {
+            UpdateNode(root);
+        }
+
+        void UpdateNode(LibraryFilterNode node)
+        {
+            node.SelectedCount = _rows.Count(row => row.IsSelected &&
+                (node.Library is null || row.Library.Equals(node.Library, StringComparison.OrdinalIgnoreCase)) &&
+                (node.Family is null || row.Family.Equals(node.Family, StringComparison.OrdinalIgnoreCase)) &&
+                (node.Type is null || row.Type.Equals(node.Type, StringComparison.OrdinalIgnoreCase)));
+            foreach (var child in node.Children) UpdateNode(child);
         }
     }
 

@@ -6,8 +6,17 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>Biblideo</AssemblyName>
     <RootNamespace>Biblideo.App</RootNamespace>
+    <StartupObject>Biblideo.App.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Biblideo.Core\Biblideo.Core.csproj" />
+    <PackageReference Include="Velopack" Version="1.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\*.png" />
   </ItemGroup>
 </Project>
