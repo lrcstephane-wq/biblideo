@@ -1,4 +1,5 @@
 using Velopack;
+using Velopack.Exceptions;
 using Velopack.Sources;
 
 namespace Biblideo.App.Services;
