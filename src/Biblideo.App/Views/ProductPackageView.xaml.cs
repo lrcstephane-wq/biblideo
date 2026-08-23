@@ -97,6 +97,7 @@ public partial class ProductPackageView : UserControl
         catch (Exception exception)
         {
             var logPath = TryWriteScanLog(exception);
+            CrashLogService.TryOpen(logPath);
             MessageBox.Show(
                 $"L’analyse n’a pas pu être terminée.\n\n{exception.Message}\n\nDétail technique :\n{logPath}",
                 "Analyse impossible",

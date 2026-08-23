@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.IO;
+using Biblideo.Core.Models;
 
 namespace Biblideo.App.Services;
 
@@ -6,9 +8,9 @@ public static class CrashLogService
 {
     private static readonly object SyncRoot = new();
 
-    public static string LogDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Ideo Solutions",
+    public static string SharedLogDirectory => Path.Combine(SettingsDefaults.ApplicationDataRoot, "Logs");
+    public static string LocalFallbackDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
         "Biblideo",
         "Logs");
 
@@ -16,12 +18,46 @@ public static class CrashLogService
     {
         lock (SyncRoot)
         {
-            Directory.CreateDirectory(LogDirectory);
-            var path = Path.Combine(LogDirectory, $"Biblideo_{DateTime.Now:yyyyMMdd}.log");
-            File.AppendAllText(
-                path,
-                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {context}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 80)}{Environment.NewLine}");
-            return path;
+            Exception? lastError = null;
+            foreach (var directory in new[] { SharedLogDirectory, LocalFallbackDirectory })
+            {
+                try
+                {
+                    Directory.CreateDirectory(directory);
+                    var machine = SanitizeFileName(Environment.MachineName);
+                    var path = Path.Combine(directory, $"Biblideo_{machine}_{DateTime.Now:yyyyMMdd}.log");
+                    File.AppendAllText(
+                        path,
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {context}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 80)}{Environment.NewLine}");
+                    return path;
+                }
+                catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+                {
+                    lastError = exception;
+                }
+            }
+
+            throw new IOException("Aucun emplacement de journal n’est accessible.", lastError);
         }
+    }
+
+    public static bool TryOpen(string path)
+    {
+        if (!File.Exists(path)) return false;
+        try
+        {
+            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return new string(value.Select(character => invalid.Contains(character) ? '_' : character).ToArray());
     }
 }

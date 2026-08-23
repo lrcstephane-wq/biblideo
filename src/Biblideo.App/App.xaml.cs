@@ -6,6 +6,8 @@ namespace Biblideo.App;
 
 public partial class App : Application
 {
+    private static int _errorDialogShown;
+
     public App()
     {
         DispatcherUnhandledException += App_DispatcherUnhandledException;
@@ -14,13 +16,16 @@ public partial class App : Application
 
     private static void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        e.Handled = true;
+        if (Interlocked.Exchange(ref _errorDialogShown, 1) != 0) return;
+
         var logPath = TryWriteLog("Erreur d’interface non gérée", e.Exception);
+        CrashLogService.TryOpen(logPath);
         MessageBox.Show(
-            $"BibliDéo a rencontré une erreur, mais reste ouvert.\n\nLe détail a été enregistré ici :\n{logPath}",
+            $"BibliDéo a rencontré une erreur. Le rapport vient d’être ouvert dans le Bloc-notes.\n\nUne seule alerte sera affichée pour éviter une boucle.\n\nEmplacement :\n{logPath}",
             "Erreur BibliDéo",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
-        e.Handled = true;
     }
 
     private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
