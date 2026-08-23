@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using Biblideo.Core.Models;
 using Biblideo.Core.Services;
