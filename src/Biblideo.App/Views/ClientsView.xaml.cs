@@ -5,6 +5,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Biblideo.App.Services;
 using Biblideo.App.ViewModels;
 using Biblideo.Core.Models;
@@ -21,6 +22,8 @@ public partial class ClientsView : UserControl
     private readonly OutlookNotificationService _outlookService = new();
     private readonly LicenseCatalogService _licenseCatalogService = new();
     private readonly LicenseManagementService _licenseManagementService = new();
+    private readonly UiPreferencesService _uiPreferencesService = new();
+    private readonly UiPreferences _uiPreferences;
     private readonly ObservableCollection<ClientRowViewModel> _visibleRows = [];
     private readonly List<ClientRowViewModel> _allRows = [];
     private ClientRegistry _registry = new();
@@ -31,11 +34,37 @@ public partial class ClientsView : UserControl
     {
         _appSettings = appSettings;
         _settings = settings;
+        _uiPreferences = _uiPreferencesService.Load();
         InitializeComponent();
         DataContext = _visibleRows;
         StatusFilter.SelectedIndex = 0;
         VariantFilter.SelectedIndex = 0;
+        ApplyClientView(_uiPreferences.ClientsUseCardView, persist: false);
         Loaded += async (_, _) => await LoadClientsAsync();
+    }
+
+    private void ClientListViewButton_Click(object sender, RoutedEventArgs e) => ApplyClientView(false);
+
+    private void ClientCardViewButton_Click(object sender, RoutedEventArgs e) => ApplyClientView(true);
+
+    private void ApplyClientView(bool useCards, bool persist = true)
+    {
+        ClientsList.ItemTemplate = (DataTemplate)FindResource(useCards ? "ClientCardTemplate" : "ClientListTemplate");
+        ClientsList.ItemContainerStyle = (Style)FindResource(useCards ? "ClientCardItemStyle" : "ClientListItemStyle");
+        ClientsList.ItemsPanel = (ItemsPanelTemplate)FindResource(useCards ? "ClientCardItemsPanel" : "ClientListItemsPanel");
+        ScrollViewer.SetCanContentScroll(ClientsList, true);
+        ScrollViewer.SetHorizontalScrollBarVisibility(ClientsList, ScrollBarVisibility.Disabled);
+
+        var active = (Brush)FindResource("AccentDarkBrush");
+        var inactive = (Brush)FindResource("SurfaceAltBrush");
+        ClientListViewButton.Background = useCards ? inactive : active;
+        ClientCardViewButton.Background = useCards ? active : inactive;
+        ClientListViewButton.Foreground = useCards ? (Brush)FindResource("TextBrush") : Brushes.White;
+        ClientCardViewButton.Foreground = useCards ? Brushes.White : (Brush)FindResource("TextBrush");
+
+        if (!persist) return;
+        _uiPreferences.ClientsUseCardView = useCards;
+        _uiPreferencesService.Save(_uiPreferences);
     }
 
     private async void ClientsList_SelectionChanged(object sender, SelectionChangedEventArgs e)

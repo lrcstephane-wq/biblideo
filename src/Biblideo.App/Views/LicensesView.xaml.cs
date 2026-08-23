@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Biblideo.App.Services;
 using Biblideo.App.ViewModels;
 using Biblideo.Core.Models;
@@ -18,6 +19,8 @@ public partial class LicensesView : UserControl
     private readonly ClientManagementService _clientService = new();
     private readonly LicenseManagementService _licenseService = new();
     private readonly LicenseCatalogService _catalogService = new();
+    private readonly UiPreferencesService _uiPreferencesService = new();
+    private readonly UiPreferences _uiPreferences;
     private readonly List<LicenseInboxRowViewModel> _allInboxRows = [];
     private readonly List<ClientLicenseRowViewModel> _allTrackingRows = [];
     private ClientRegistry _registry = new();
@@ -30,9 +33,11 @@ public partial class LicensesView : UserControl
     {
         _settings = settings;
         _clientSettings = clientSettings;
+        _uiPreferences = _uiPreferencesService.Load();
         InitializeComponent();
         DataContext = this;
         TrackingStatusFilter.SelectedIndex = 0;
+        ApplyTrackingView(_uiPreferences.LicenseTrackingUseCardView, persist: false);
         Loaded += async (_, _) => await LoadAsync();
     }
 
@@ -256,6 +261,30 @@ public partial class LicensesView : UserControl
     private void UnselectAllInbox_Click(object sender, RoutedEventArgs e) { foreach (var row in _allInboxRows) row.IsSelected = false; }
     private void TrackingFilterChanged(object sender, RoutedEventArgs e) => RefreshTracking();
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadAsync();
+
+    private void TrackingListViewButton_Click(object sender, RoutedEventArgs e) => ApplyTrackingView(false);
+
+    private void TrackingCardViewButton_Click(object sender, RoutedEventArgs e) => ApplyTrackingView(true);
+
+    private void ApplyTrackingView(bool useCards, bool persist = true)
+    {
+        TrackingList.ItemTemplate = (DataTemplate)FindResource(useCards ? "LicenseTrackingCardTemplate" : "LicenseTrackingListTemplate");
+        TrackingList.ItemContainerStyle = (Style)FindResource(useCards ? "LicenseTrackingCardItemStyle" : "LicenseTrackingListItemStyle");
+        TrackingList.ItemsPanel = (ItemsPanelTemplate)FindResource(useCards ? "LicenseTrackingCardItemsPanel" : "LicenseTrackingListItemsPanel");
+        ScrollViewer.SetCanContentScroll(TrackingList, true);
+        ScrollViewer.SetHorizontalScrollBarVisibility(TrackingList, ScrollBarVisibility.Disabled);
+
+        var active = (Brush)FindResource("AccentDarkBrush");
+        var inactive = (Brush)FindResource("SurfaceAltBrush");
+        TrackingListViewButton.Background = useCards ? inactive : active;
+        TrackingCardViewButton.Background = useCards ? active : inactive;
+        TrackingListViewButton.Foreground = useCards ? (Brush)FindResource("TextBrush") : Brushes.White;
+        TrackingCardViewButton.Foreground = useCards ? Brushes.White : (Brush)FindResource("TextBrush");
+
+        if (!persist) return;
+        _uiPreferences.LicenseTrackingUseCardView = useCards;
+        _uiPreferencesService.Save(_uiPreferences);
+    }
 
     private void OpenPlanner_Click(object sender, RoutedEventArgs e)
     {
