@@ -32,4 +32,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
-        run: gh release create "v1.4.0" "publish/Biblideo.exe" --target "${{ github.sha }}" --title "Biblidéo 1.4.0" --notes "Module Clients : statuts de mise à jour, création et modification, détection des derniers packs, structure contrôlée, archives récupérables, historique partagé et notifications Outlook."
+        run: |
+          gh release create "v1.4.0" "publish/Biblideo.exe" --target "${{ github.sha }}" --title "Biblidéo 1.4.0" --notes "Module Clients : statuts de mise à jour, création et modification, détection des derniers packs, structure contrôlée, archives récupérables, historique partagé et notifications Outlook."
