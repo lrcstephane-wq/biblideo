@@ -72,6 +72,10 @@
             </ControlTemplate></Setter.Value></Setter>
         </Style>
 
+        <Style x:Key="SwitchToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="54" /><Setter Property="Height" Value="30" /><Setter Property="Background" Value="#3B4858" /><Setter Property="BorderBrush" Value="#53647A" /><Setter Property="Cursor" Value="Hand" /><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Grid Width="{TemplateBinding Width}" Height="{TemplateBinding Height}"><Border x:Name="Track" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="15"/><Ellipse x:Name="Thumb" Width="22" Height="22" Fill="#E9EFF7" HorizontalAlignment="Left" Margin="4,0,0,0"><Ellipse.Effect><DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.35"/></Ellipse.Effect></Ellipse></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Track" Property="Background" Value="#2FA873"/><Setter TargetName="Track" Property="BorderBrush" Value="#54D69E"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/><Setter TargetName="Thumb" Property="Margin" Value="0,0,4,0"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="#76AAE8"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+
         <Style TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" /><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="11,7" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">

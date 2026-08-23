@@ -1,0 +1,31 @@
+<Window x:Class="Biblideo.App.Views.ClientEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="650" Height="620" WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False">
+    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="#506985" BorderThickness="1" CornerRadius="14">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="*"/><RowDefinition Height="72"/></Grid.RowDefinitions>
+            <Border Background="{StaticResource HeaderBrush}" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid Margin="20,0,12,0"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Image Source="/Biblideo;component/Assets/ideo-mark.png" Width="28" Height="28" Margin="0,0,11,0"/><StackPanel><TextBlock x:Name="TitleText" Text="Nouveau client" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="Dossier, version et correspondances licences" Foreground="{StaticResource MutedBrush}" FontSize="10"/></StackPanel></StackPanel><Button Content="×" Width="34" Height="30" Padding="0" FontSize="18" Background="Transparent" BorderBrush="Transparent" HorizontalAlignment="Right" Click="Cancel_Click"/></Grid>
+            </Border>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="26,22">
+                    <TextBlock Text="NOM DU CLIENT" Style="{StaticResource EyebrowText}"/><TextBox x:Name="NameText" Margin="0,7,0,18" TextChanged="FormChanged"/>
+                    <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <StackPanel><TextBlock Text="VERSION DE BIBLIOTHÈQUE" Style="{StaticResource EyebrowText}"/><ComboBox x:Name="VariantCombo" Margin="0,7,0,0" SelectionChanged="FormChanged"><ComboBoxItem Content="SC · Sans chant" Tag="SC"/><ComboBoxItem Content="EP · Entité panneau" Tag="EP"/><ComboBoxItem Content="SC + EP" Tag="SC_EP"/></ComboBox></StackPanel>
+                        <StackPanel Grid.Column="2"><TextBlock Text="ABONNEMENT AUX MISES À JOUR" Style="{StaticResource EyebrowText}"/><ToggleButton x:Name="SubscriptionToggle" Style="{StaticResource SwitchToggle}" Margin="0,11,0,0" Click="FormChanged" HorizontalAlignment="Left"/><TextBlock x:Name="SubscriptionLabel" Margin="66,-26,0,0" VerticalAlignment="Center"/></StackPanel>
+                    </Grid>
+                    <TextBlock Text="ADRESSES MAIL LIÉES AU CLIENT" Style="{StaticResource EyebrowText}"/>
+                    <TextBlock Text="Une adresse par ligne, ou séparées par un point-virgule." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,7"/>
+                    <TextBox x:Name="EmailsText" Height="104" AcceptsReturn="True" VerticalContentAlignment="Top" TextWrapping="Wrap" TextChanged="FormChanged"/>
+                    <Border Background="{StaticResource FieldBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9" Padding="14,11" Margin="0,18,0,0">
+                        <StackPanel><TextBlock Text="APERÇU DU DOSSIER" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="PreviewText" Margin="0,7,0,0" FontFamily="Consolas" FontSize="14" TextWrapping="Wrap"/><TextBlock x:Name="ValidationText" Foreground="#E7A46B" Margin="0,7,0,0" FontSize="11" TextWrapping="Wrap"/></StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+            <Border Grid.Row="2" Background="#141F2D" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,14,14" Padding="20,14"><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="Annuler" MinWidth="105" Margin="0,0,9,0" Click="Cancel_Click"/><Button x:Name="SaveButton" Content="Créer le client" MinWidth="145" Style="{StaticResource PrimaryButton}" Click="Save_Click"/></StackPanel></Border>
+        </Grid>
+    </Border>
+</Window>

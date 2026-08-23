@@ -144,6 +144,88 @@ try
     Check(!Directory.Exists(refreshedPackage.FullPath) && Directory.Exists(trashResult.TrashPath),
         "La suppression doit déplacer le package complet dans la corbeille récupérable.");
     Check(File.Exists(secondTopPath), "La mise en corbeille du package ne doit pas toucher à la bibliothèque source.");
+
+    var clientsRoot = Path.Combine(testRoot, "clients");
+    var clientDataRoot = Path.Combine(testRoot, "client-data");
+    var clientAppSettings = new AppSettings
+    {
+        ClientsRootPath = clientsRoot
+    };
+    var clientModuleSettings = new ClientModuleSettings
+    {
+        ArchivePath = Path.Combine(testRoot, "client-archives"),
+        RegistryPath = Path.Combine(clientDataRoot, "clients.json"),
+        HistoryPath = Path.Combine(clientDataRoot, "history.jsonl")
+    };
+    var clientSettings = ClientModuleContext.Create(clientAppSettings, clientModuleSettings);
+    Directory.CreateDirectory(clientsRoot);
+    var clientManagement = new ClientManagementService();
+    var clientRegistryService = new ClientRegistryService();
+    var clientDraft = new ClientDraft("Groupe Dubois", ClientLibraryVariant.EP, true, ["client@example.invalid"]);
+    var clientPath = clientManagement.CreateClient(clientSettings, clientDraft);
+    Check(Path.GetFileName(clientPath) == "_Groupe_Dubois_(EP)", "Le dossier client doit respecter le format officiel.");
+    Check(clientSettings.ClientFolderStructure.All(folder => Directory.Exists(Path.Combine(clientPath, folder))), "La structure client complète doit être créée.");
+
+    var clientRegistry = new ClientRegistry();
+    clientRegistry.Clients.Add(new ClientMetadata
+    {
+        CanonicalName = ClientFolderNamingService.BuildCanonicalName(clientDraft.BaseName),
+        FolderName = Path.GetFileName(clientPath),
+        Emails = clientDraft.Emails.ToList()
+    });
+    await clientRegistryService.SaveAsync(clientSettings.ClientRegistryPath, clientRegistry);
+    var clientBiblideoPath = Path.Combine(clientPath, clientSettings.ClientBiblideoFolderName);
+    Directory.CreateDirectory(Path.Combine(clientBiblideoPath, "2607"));
+    File.WriteAllText(Path.Combine(clientBiblideoPath, "2608_EP.exe"), "pack");
+    var clientScan = clientManagement.Scan(clientSettings, await clientRegistryService.LoadAsync(clientSettings.ClientRegistryPath));
+    Check(clientScan.Clients.Count == 1, "Le scanner clients doit reconnaître le dossier créé.");
+    var scannedClient = clientScan.Clients.Single();
+    Check(scannedClient.IsSubscribed && scannedClient.Variant == ClientLibraryVariant.EP, "Le préfixe et la version du client doivent être analysés.");
+    Check(scannedClient.LatestDeploymentDisplay == "2608", "Le dernier pack EP doit être détecté avant l’ancien format aamm.");
+    Check(scannedClient.Emails.Single() == "client@example.invalid", "Les mails doivent provenir du registre partagé.");
+
+    var statusChange = new ClientSubscriptionChange(scannedClient, false);
+    var renamed = await clientManagement.ApplySubscriptionChangesAsync(clientSettings, [statusChange]);
+    Check(renamed.Count == 1 && Directory.Exists(Path.Combine(clientsRoot, "Groupe_Dubois_(EP)")), "La désactivation doit uniquement retirer le marqueur du dossier.");
+    Check(!Directory.Exists(clientPath), "L’ancien nom marqué ne doit plus exister après le renommage.");
+
+    var unmarkedClient = new ClientRecord
+    {
+        MetadataId = scannedClient.MetadataId,
+        BaseName = scannedClient.BaseName,
+        DisplayName = scannedClient.DisplayName,
+        FolderName = "Groupe_Dubois_(EP)",
+        FullPath = Path.Combine(clientsRoot, "Groupe_Dubois_(EP)"),
+        Variant = ClientLibraryVariant.EP,
+        IsSubscribed = false,
+        Emails = scannedClient.Emails
+    };
+    Directory.Delete(Path.Combine(unmarkedClient.FullPath, "90_Dev_Spe"));
+    Check(clientManagement.RepairStructure(clientSettings, unmarkedClient).Count == 1, "La réparation doit recréer uniquement le sous-dossier manquant.");
+    var inventory = clientManagement.InspectFolder(clientSettings, unmarkedClient);
+    Check(!inventory.IsEmpty && inventory.FileCount == 1, "L’inventaire doit compter le pack mensuel présent.");
+    var archivedClientPath = clientManagement.ArchiveClient(clientSettings, unmarkedClient);
+    Check(Directory.Exists(archivedClientPath) && !Directory.Exists(unmarkedClient.FullPath), "L’archivage doit déplacer le client vers le dossier récupérable.");
+    var archivedMetadata = clientRegistry.Clients.Single();
+    archivedMetadata.IsArchived = true;
+    archivedMetadata.ArchivedPath = archivedClientPath;
+    archivedMetadata.FolderName = unmarkedClient.FolderName;
+    var restoredPath = clientManagement.RestoreArchivedClient(clientSettings, archivedMetadata);
+    Check(Directory.Exists(restoredPath) && !Directory.Exists(archivedClientPath), "Une archive client doit pouvoir être restaurée.");
+
+    Check(ClientFolderNamingService.TryParse("_Client_Test_(EP+SC)", "_", out var legacyDual) && legacyDual?.Variant == ClientLibraryVariant.SC_EP,
+        "L’ordre historique EP+SC doit rester reconnu.");
+
+    var emptyDraft = new ClientDraft("Client Vide", ClientLibraryVariant.SC, false, ["empty@example.invalid"]);
+    var emptyPath = clientManagement.CreateClient(clientSettings, emptyDraft);
+    var emptyClient = new ClientRecord
+    {
+        MetadataId = Guid.NewGuid(), BaseName = "Client_Vide", DisplayName = "Client Vide", FolderName = Path.GetFileName(emptyPath),
+        FullPath = emptyPath, Variant = ClientLibraryVariant.SC, IsSubscribed = false
+    };
+    Check(clientManagement.InspectFolder(clientSettings, emptyClient).IsEmpty, "Un client ne contenant que des dossiers doit être considéré comme vide.");
+    clientManagement.PermanentlyDeleteEmptyClient(clientSettings, emptyClient);
+    Check(!Directory.Exists(emptyPath), "La suppression définitive doit être possible uniquement pour un dossier client vide.");
 }
 finally
 {

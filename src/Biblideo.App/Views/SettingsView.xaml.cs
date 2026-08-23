@@ -11,13 +11,22 @@ namespace Biblideo.App.Views;
 public partial class SettingsView : UserControl
 {
     private readonly AppSettings _settings;
+    private readonly ClientModuleSettings _clientSettings;
     private readonly SettingsService _settingsService;
-    private readonly Action<AppSettings> _saved;
+    private readonly ClientModuleSettingsService _clientSettingsService;
+    private readonly Action<AppSettings, ClientModuleSettings> _saved;
 
-    public SettingsView(AppSettings settings, SettingsService settingsService, Action<AppSettings> saved)
+    public SettingsView(
+        AppSettings settings,
+        ClientModuleSettings clientSettings,
+        SettingsService settingsService,
+        ClientModuleSettingsService clientSettingsService,
+        Action<AppSettings, ClientModuleSettings> saved)
     {
         _settings = settings;
+        _clientSettings = clientSettings;
         _settingsService = settingsService;
+        _clientSettingsService = clientSettingsService;
         _saved = saved;
         InitializeComponent();
         LoadValues();
@@ -35,6 +44,12 @@ public partial class SettingsView : UserControl
         ReportsText.Text = _settings.ReportsPath;
         ProductTrashText.Text = _settings.ProductTrashPath;
         SevenZipText.Text = _settings.SevenZipExecutablePath;
+        ClientArchiveText.Text = _clientSettings.ArchivePath;
+        ClientRegistryText.Text = _clientSettings.RegistryPath;
+        ClientHistoryText.Text = _clientSettings.HistoryPath;
+        ClientMarkerText.Text = _clientSettings.SubscriptionMarker;
+        ClientFoldersText.Text = string.Join("; ", _clientSettings.FolderStructure);
+        ClientRecipientsText.Text = string.Join("; ", _clientSettings.NotificationRecipients);
     }
 
     private void BrowseSharedSettings_Click(object sender, RoutedEventArgs e)
@@ -65,9 +80,25 @@ public partial class SettingsView : UserControl
         if (dialog.ShowDialog() == true) SevenZipText.Text = dialog.FileName;
     }
 
+    private void BrowseDataFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag }) return;
+        var parts = tag.Split('|', 2);
+        if (parts.Length != 2 || FindName(parts[0]) is not TextBox target) return;
+        var currentDirectory = Path.GetDirectoryName(target.Text);
+        var dialog = new SaveFileDialog
+        {
+            Title = "Choisir le fichier partagé",
+            FileName = parts[1],
+            Filter = parts[1].EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase) ? "Historique JSONL|*.jsonl|Tous les fichiers|*.*" : "Configuration JSON|*.json|Tous les fichiers|*.*",
+            InitialDirectory = currentDirectory is not null && Directory.Exists(currentDirectory) ? currentDirectory : SettingsDefaults.ApplicationDataRoot
+        };
+        if (dialog.ShowDialog() == true) target.Text = dialog.FileName;
+    }
+
     private void TestPathsButton_Click(object sender, RoutedEventArgs e)
     {
-        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text };
+        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text, ClientArchiveText.Text };
         var validFolders = folderPaths.Count(Directory.Exists);
         var sevenZipValid = File.Exists(SevenZipText.Text);
         var sharedDirectory = Path.GetDirectoryName(SharedSettingsText.Text.Trim());
@@ -94,10 +125,37 @@ public partial class SettingsView : UserControl
             MonthlyPackagesRootPath = IdeoRootText.Text.Trim(),
             SevenZipExecutablePath = SevenZipText.Text.Trim()
         };
+        var stagedClientSettings = new ClientModuleSettings
+        {
+            ArchivePath = ClientArchiveText.Text.Trim(),
+            RegistryPath = ClientRegistryText.Text.Trim(),
+            HistoryPath = ClientHistoryText.Text.Trim(),
+            SubscriptionMarker = ClientMarkerText.Text.Trim(),
+            BiblideoFolderName = _clientSettings.BiblideoFolderName,
+            FolderStructure = ClientFoldersText.Text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            IgnoredFolderNames = _clientSettings.IgnoredFolderNames,
+            NotificationRecipients = ClientRecipientsText.Text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+        };
+        if (stagedClientSettings.FolderStructure.Count == 0)
+        {
+            IdeoDialog.Warning("Structure client incomplète", "Au moins un sous-dossier client doit être configuré.");
+            return;
+        }
+        if (!stagedClientSettings.FolderStructure.Contains(stagedClientSettings.BiblideoFolderName, StringComparer.OrdinalIgnoreCase))
+        {
+            IdeoDialog.Warning("Dossier Biblidéo manquant", $"La structure doit contenir {stagedClientSettings.BiblideoFolderName} pour détecter les déploiements.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(stagedClientSettings.SubscriptionMarker))
+        {
+            IdeoDialog.Warning("Marqueur obligatoire", "Le marqueur permettant d’identifier les clients sous mise à jour ne peut pas être vide.");
+            return;
+        }
         try
         {
             await _settingsService.SaveAsync(stagedSettings, stagedSettings.SharedSettingsPath);
-            _saved(stagedSettings);
+            await _clientSettingsService.SaveAsync(stagedSettings, stagedClientSettings);
+            _saved(stagedSettings, stagedClientSettings);
             TestResultText.Text = "Configuration partagée enregistrée · copie locale actualisée.";
             TestResultText.Foreground = System.Windows.Media.Brushes.LightGreen;
         }

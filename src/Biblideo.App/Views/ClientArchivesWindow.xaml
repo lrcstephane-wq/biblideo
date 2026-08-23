@@ -1,0 +1,13 @@
+<Window x:Class="Biblideo.App.Views.ClientArchivesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="900" Height="620" MinWidth="760" MinHeight="480"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource BackgroundBrush}"
+        Icon="/Biblideo;component/Assets/ideo-mark.png" Title="Archives clients Biblidéo">
+    <Grid><Grid.RowDefinitions><RowDefinition Height="70"/><RowDefinition Height="*"/><RowDefinition Height="64"/></Grid.RowDefinitions>
+        <Border Background="{StaticResource HeaderBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"><StackPanel Margin="24,0" VerticalAlignment="Center"><TextBlock Text="Archives clients" FontSize="21" FontWeight="SemiBold"/><TextBlock Text="Les dossiers restent récupérables tant qu’ils sont ici." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/></StackPanel></Border>
+        <ListBox x:Name="ArchivesList" Grid.Row="1" Margin="20" ScrollViewer.VerticalScrollBarVisibility="Auto"><ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle><ListBox.ItemTemplate><DataTemplate><Border Style="{StaticResource ModernPanel}" Padding="16"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="130"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding FolderName}" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="{Binding ArchivedPath}" Foreground="{StaticResource SubtleBrush}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Emails.Count, StringFormat={}{0} adresse(s) mail}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/><Button Grid.Column="2" Content="Restaurer" Tag="{Binding}" Click="Restore_Click"/></Grid></Border></DataTemplate></ListBox.ItemTemplate></ListBox>
+        <TextBlock x:Name="EmptyText" Grid.Row="1" Text="Aucune archive enregistrée." Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+        <Border Grid.Row="2" Background="{StaticResource HeaderBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="20,12"><Button Content="Fermer" HorizontalAlignment="Right" MinWidth="110" Click="Close_Click"/></Border>
+    </Grid>
+</Window>
