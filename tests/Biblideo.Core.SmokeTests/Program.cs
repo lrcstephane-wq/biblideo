@@ -81,6 +81,25 @@ try
         "Les documents fixes du modèle doivent être repris.");
     Check(plan.Directories.Any(directory => directory.RelativeDestination == Path.Combine("Bibliotheque", "_Ideo_Utilisateur", "Caisson")),
         "Tous les dossiers parents des composants doivent être planifiés.");
+
+    var execution = await new ProductPackageExecutionService().ExecuteAsync(plan);
+    Check(Directory.Exists(plan.TargetRoot), "Le service d’exécution doit créer le dossier du package.");
+    Check(execution.Files.Count == plan.Files.Count, "Tous les fichiers planifiés doivent être copiés et contrôlés.");
+    Check(File.Exists(execution.ManifestPath), "Un manifeste de traçabilité doit être écrit dans le package.");
+    var copiedTop = Path.Combine(plan.TargetRoot, "Bibliotheque", "_Ideo_Utilisateur", "Caisson", Path.GetFileName(topPath));
+    Check(File.Exists(copiedTop) && File.ReadAllText(copiedTop) == "top", "Le .top doit être copié dans son architecture d’origine.");
+    Check(File.Exists(topPath), "Le fichier source doit toujours exister après la copie.");
+
+    var secondExecutionWasBlocked = false;
+    try
+    {
+        await new ProductPackageExecutionService().ExecuteAsync(plan);
+    }
+    catch (IOException)
+    {
+        secondExecutionWasBlocked = true;
+    }
+    Check(secondExecutionWasBlocked, "Une seconde exécution doit être refusée afin de ne jamais écraser la destination.");
 }
 finally
 {

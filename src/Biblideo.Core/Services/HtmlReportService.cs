@@ -50,6 +50,37 @@ public sealed class HtmlReportService
         return builder.ToString();
     }
 
+    public string BuildProductPackageExecutionReport(SimulationPlan plan, ProductPackageExecutionResult result)
+    {
+        var duration = result.CompletedAt - result.StartedAt;
+        var builder = new StringBuilder();
+        builder.Append("<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Rapport de copie Biblidéo</title>")
+            .Append("<style>")
+            .Append("html{scrollbar-color:#66717e #23282f;scrollbar-width:thin}::-webkit-scrollbar{width:12px;height:12px}::-webkit-scrollbar-track{background:#23282f}::-webkit-scrollbar-thumb{background:#66717e;border:2px solid #23282f;border-radius:8px}body{margin:0;background:#07101f;color:#dbeafe;font:14px 'Segoe UI',Arial,sans-serif}main{max-width:1280px;margin:auto;padding:32px}.hero{background:linear-gradient(135deg,#12345d,#17614f);border:1px solid #29836d;border-radius:18px;padding:28px;box-shadow:0 18px 50px #0005}.eyebrow{color:#79e4c1;text-transform:uppercase;letter-spacing:.14em;font-weight:700;font-size:12px}h1{margin:8px 0 4px;font-size:30px}.muted{color:#94a3b8}.badge{display:inline-block;margin-top:15px;padding:7px 12px;border-radius:999px;font-weight:700;background:#064e3b;color:#a7f3d0}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:20px 0}.card{background:#0e1b30;border:1px solid #203451;border-radius:14px;padding:18px}.value{font-size:22px;font-weight:700;color:#f8fafc;margin-top:6px}.panel{background:#0e1b30;border:1px solid #203451;border-radius:14px;padding:20px;margin-top:16px}table{width:100%;border-collapse:collapse;margin-top:12px}th{text-align:left;color:#79e4c1;border-bottom:1px solid #27405f;padding:10px}td{border-bottom:1px solid #172a43;padding:9px;vertical-align:top}code{color:#bae6fd;word-break:break-all}.notice{border-left:4px solid #35b98e;padding:12px 16px;background:#064e3b55;border-radius:8px;margin:18px 0}@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}</style></head><body><main>")
+            .Append("<section class=\"hero\"><div class=\"eyebrow\">Biblidéo · Rapport d’exécution</div><h1>")
+            .Append(E(result.PackageName)).Append("</h1><div class=\"muted\">Terminé le ")
+            .Append(E(result.CompletedAt.ToString("dd/MM/yyyy à HH:mm:ss"))).Append("</div><div class=\"badge\">COPIE CONTRÔLÉE RÉUSSIE</div></section>")
+            .Append("<div class=\"notice\"><strong>Politique appliquée :</strong> création et copie uniquement. Aucun fichier existant n’a été écrasé, supprimé, renommé ou déplacé. Chaque copie a été vérifiée par SHA-256.</div>")
+            .Append("<section class=\"grid\">")
+            .Append(Card("Variante", plan.Variant.ToString()))
+            .Append(Card("Fichiers copiés", result.Files.Count.ToString("N0")))
+            .Append(Card("Volume vérifié", FormatBytes(result.TotalBytes)))
+            .Append(Card("Durée", $"{duration.TotalSeconds:0.0} s"))
+            .Append("</section><section class=\"panel\"><h2>Destination créée</h2><p><code>")
+            .Append(E(result.TargetRoot)).Append("</code></p><p><b>Manifeste :</b> <code>")
+            .Append(E(result.ManifestPath)).Append("</code></p></section>")
+            .Append("<section class=\"panel\"><h2>Fichiers copiés et vérifiés</h2><table><thead><tr><th>Destination relative</th><th>Taille</th><th>SHA-256</th><th>Source</th></tr></thead><tbody>");
+
+        foreach (var file in result.Files)
+        {
+            builder.Append("<tr><td><code>").Append(E(file.RelativeDestination)).Append("</code></td><td>")
+                .Append(E(FormatBytes(file.Bytes))).Append("</td><td><code>").Append(E(file.Sha256)).Append("</code></td><td><code>")
+                .Append(E(file.SourcePath)).Append("</code></td></tr>");
+        }
+        builder.Append("</tbody></table></section></main></body></html>");
+        return builder.ToString();
+    }
+
     private static void AppendMessages(StringBuilder builder, string title, IReadOnlyList<string> messages, string cssClass)
     {
         if (messages.Count == 0) return;

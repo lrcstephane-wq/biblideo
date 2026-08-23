@@ -67,7 +67,7 @@ public partial class MainWindow : Window
                 if (version is null)
                 {
                     UpdateButton.Content = "À jour";
-                    MessageBox.Show($"Biblidéo {_updateService.CurrentVersion} est déjà à jour.", "Mise à jour", MessageBoxButton.OK, MessageBoxImage.Information);
+                    IdeoDialog.Info("Mise à jour", $"Biblidéo {_updateService.CurrentVersion} est déjà à jour.", "Pour une fois qu’un logiciel ne réclame rien, profitons-en.");
                     return;
                 }
                 UpdateButton.Content = $"Installer v{version}";
@@ -76,7 +76,7 @@ public partial class MainWindow : Window
             catch (Exception exception)
             {
                 UpdateButton.Content = "Réessayer";
-                MessageBox.Show(exception.Message, "Vérification impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
+                IdeoDialog.Warning("Vérification impossible", exception.Message);
                 return;
             }
             finally
@@ -85,11 +85,11 @@ public partial class MainWindow : Window
             }
         }
 
-        if (MessageBox.Show(
-                $"La version {_updateService.AvailableVersion} va être téléchargée. Biblidéo se fermera, remplacera son exécutable puis redémarrera automatiquement. Continuer ?",
+        if (!IdeoDialog.Confirm(
                 "Mise à jour Biblidéo",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+                $"La version {_updateService.AvailableVersion} va être téléchargée. Biblidéo se fermera, remplacera son exécutable puis redémarrera automatiquement.",
+                "Une courte pause café numérique, puis tout repart.",
+                "Mettre à jour"))
         {
             return;
         }
@@ -105,7 +105,7 @@ public partial class MainWindow : Window
         {
             UpdateButton.IsEnabled = true;
             UpdateButton.Content = "Réessayer la mise à jour";
-            MessageBox.Show(exception.Message, "Mise à jour impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
+            IdeoDialog.Warning("Mise à jour impossible", exception.Message);
         }
     }
 

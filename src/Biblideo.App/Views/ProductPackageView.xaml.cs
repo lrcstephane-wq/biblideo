@@ -19,6 +19,7 @@ public partial class ProductPackageView : UserControl
     private readonly AppSettings _settings;
     private readonly LibraryScanner _scanner = new();
     private readonly ProductPackageSimulationService _simulationService = new();
+    private readonly ProductPackageExecutionService _executionService = new();
     private readonly HtmlReportService _reportService = new();
     private ObservableCollection<ComponentRowViewModel> _rows = [];
     private readonly ObservableCollection<LibraryFilterNode> _libraryNodes = [];
@@ -66,11 +67,10 @@ public partial class ProductPackageView : UserControl
         var source = SourcePathText.Text.Trim();
         if (!Directory.Exists(source))
         {
-            MessageBox.Show(
-                $"Le dossier source est introuvable.\n\n{source}\n\nModifie le chemin ou utilise le bouton Parcourir.",
+            IdeoDialog.Warning(
                 "Source inaccessible",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                $"Le dossier source est introuvable.\n\n{source}\n\nModifie le chemin ou utilise le bouton Parcourir.",
+                "Même les engrenages ont besoin de savoir où ils vont.");
             return;
         }
         IdentityScanProgress.Visibility = Visibility.Visible;
@@ -100,11 +100,9 @@ public partial class ProductPackageView : UserControl
         {
             var logPath = TryWriteScanLog(exception);
             CrashLogService.TryOpen(logPath);
-            MessageBox.Show(
-                $"L’analyse n’a pas pu être terminée.\n\n{exception.Message}\n\nDétail technique :\n{logPath}",
+            IdeoDialog.Error(
                 "Analyse impossible",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                $"L’analyse n’a pas pu être terminée.\n\n{exception.Message}\n\nDétail technique :\n{logPath}");
             IdentityStatusText.Text = "Analyse interrompue. Vérifie le chemin source dans les paramètres.";
         }
         finally
@@ -465,19 +463,19 @@ public partial class ProductPackageView : UserControl
     {
         if (_scanResult is null)
         {
-            MessageBox.Show("Analyse d’abord la bibliothèque source.", "Analyse requise", MessageBoxButton.OK, MessageBoxImage.Information);
+            IdeoDialog.Info("Analyse requise", "Analyse d’abord la bibliothèque source.", "Sans matière première, même Thomas ne fabrique pas de composant.");
             return false;
         }
         if (!Path.TrimEndingDirectorySeparator(_scanResult.SourceRoot).Equals(
                 Path.TrimEndingDirectorySeparator(SourcePathText.Text.Trim()),
                 StringComparison.OrdinalIgnoreCase))
         {
-            MessageBox.Show("Le chemin source a changé depuis la dernière analyse. Relance l’analyse avant de continuer.", "Nouvelle analyse requise", MessageBoxButton.OK, MessageBoxImage.Information);
+            IdeoDialog.Info("Nouvelle analyse requise", "Le chemin source a changé depuis la dernière analyse. Relance l’analyse avant de continuer.");
             return false;
         }
         if (_rows.All(row => !row.IsSelected))
         {
-            MessageBox.Show("Ajoute au moins un composant au package.", "Package vide", MessageBoxButton.OK, MessageBoxImage.Information);
+            IdeoDialog.Info("Package vide", "Ajoute au moins un composant au package.", "Un package vide, c’est très léger… mais assez peu utile.");
             return false;
         }
         if (!TryGetPackageName(out _)) return false;
@@ -496,7 +494,7 @@ public partial class ProductPackageView : UserControl
         VerificationFileCount.Text = plan.Files.Count.ToString("N0");
         VerificationLibraryCount.Text = selected.Select(row => row.Library).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString("N0");
         VerificationWarningCount.Text = (plan.Warnings.Count + plan.BlockingErrors.Count).ToString("N0");
-        VerificationTargetPathText.Text = Path.Combine(plan.TargetRoot, plan.OperationName);
+        VerificationTargetPathText.Text = plan.TargetRoot;
         VerificationStatusText.Text = plan.BlockingErrors.Count > 0
             ? $"{plan.BlockingErrors.Count:N0} erreur(s) bloquante(s) à corriger."
             : plan.Warnings.Count > 0
@@ -647,7 +645,7 @@ public partial class ProductPackageView : UserControl
         else
         {
             ShowStep(2);
-            MessageBox.Show("Le package est maintenant vide. Ajoute au moins un composant pour poursuivre.", "Package vide", MessageBoxButton.OK, MessageBoxImage.Information);
+            IdeoDialog.Info("Package vide", "Le package est maintenant vide. Ajoute au moins un composant pour poursuivre.", "Le dernier composant vient d’éteindre la lumière en partant.");
         }
     }
 
@@ -661,8 +659,103 @@ public partial class ProductPackageView : UserControl
         _lastReportHtml = _reportService.BuildProductPackageReport(plan);
         _lastReportFileName = $"Rapport_{packageName}.html";
         LastReportNameText.Text = _lastReportFileName;
+        RealCopyStatusText.Text = plan.BlockingErrors.Count > 0
+            ? "La copie réelle reste verrouillée tant que les erreurs bloquantes ne sont pas corrigées."
+            : $"Prêt à créer {plan.Files.Count:N0} fichier(s) dans un nouveau dossier. Aucun écrasement autorisé.";
+        RealCopyProgress.Visibility = Visibility.Collapsed;
+        RealCopyProgress.Value = 0;
+        CreateRealPackageButton.IsEnabled = plan.BlockingErrors.Count == 0;
         ShowStep(4);
         OpenLastReport();
+    }
+
+    private async void CreateRealPackageButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_scanResult is null || !TryGetPackageName(out var packageName)) return;
+
+        var selected = _rows.Where(row => row.IsSelected).Select(row => row.Component).ToArray();
+        var plan = _simulationService.BuildPlan(_scanResult, selected, _settings, _selectedVariant, packageName);
+        if (plan.BlockingErrors.Count > 0)
+        {
+            IdeoDialog.Error("Copie verrouillée", string.Join(Environment.NewLine, plan.BlockingErrors), "On corrige d’abord, on copie ensuite. Les dossiers clients apprécient cette philosophie.");
+            return;
+        }
+
+        if (Directory.Exists(plan.TargetRoot) || File.Exists(plan.TargetRoot))
+        {
+            IdeoDialog.Warning(
+                "Destination déjà occupée",
+                $"Le dossier existe déjà :\n{plan.TargetRoot}\n\nBiblidéo refuse tout écrasement. Modifie le compteur ou le libellé.",
+                "Même le bouton bleu n’a pas le droit d’écraser un collègue.");
+            return;
+        }
+
+        var confirmed = IdeoDialog.Confirm(
+            "Créer réellement le package ?",
+            $"{plan.Files.Count:N0} fichier(s) seront COPIÉS dans :\n{plan.TargetRoot}\n\nLa source restera intacte. Aucun fichier ne sera supprimé, déplacé ou écrasé.",
+            "Simulation validée, ceinture attachée, destination libre.",
+            "Créer le package");
+        if (!confirmed) return;
+
+        CreateRealPackageButton.IsEnabled = false;
+        RealCopyProgress.Visibility = Visibility.Visible;
+        RealCopyProgress.Value = 0;
+        RealCopyStatusText.Text = "Préparation de la copie contrôlée…";
+        var completed = false;
+
+        try
+        {
+            var progress = new Progress<PackageCopyProgress>(item =>
+            {
+                RealCopyProgress.Value = item.Percentage;
+                RealCopyStatusText.Text = $"{item.CompletedFiles:N0} / {item.TotalFiles:N0} · {item.RelativeDestination}";
+            });
+            var result = await _executionService.ExecuteAsync(plan, progress);
+            _lastReportHtml = _reportService.BuildProductPackageExecutionReport(plan, result);
+            _lastReportFileName = $"Rapport_Copie_{packageName}_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+            LastReportNameText.Text = _lastReportFileName;
+
+            string? savedReportPath = null;
+            try
+            {
+                Directory.CreateDirectory(_settings.ReportsPath);
+                savedReportPath = Path.Combine(_settings.ReportsPath, _lastReportFileName);
+                await File.WriteAllTextAsync(savedReportPath, _lastReportHtml);
+            }
+            catch (Exception reportException)
+            {
+                IdeoDialog.Warning(
+                    "Package créé, rapport réseau indisponible",
+                    $"Le package est bien créé et vérifié, mais le rapport n’a pas pu être enregistré dans le dossier partagé.\n\n{reportException.Message}",
+                    "Le package va bien. C’est seulement le rapport qui cherche encore le réseau.");
+            }
+
+            RealCopyProgress.Value = 100;
+            RealCopyStatusText.Text = savedReportPath is null
+                ? $"Package créé et vérifié : {result.Files.Count:N0} fichier(s). Rapport affiché uniquement."
+                : $"Package créé et vérifié : {result.Files.Count:N0} fichier(s). Rapport enregistré dans le dossier partagé.";
+            completed = true;
+
+            IdeoDialog.Info(
+                "Package créé et contrôlé",
+                $"{result.Files.Count:N0} fichier(s) ont été copiés puis vérifiés par SHA-256.\n\nDestination :\n{result.TargetRoot}",
+                "Aucun fichier source n’a été maltraité pendant cette opération.");
+            OpenLastReport();
+        }
+        catch (Exception exception)
+        {
+            var logPath = TryWriteScanLog(exception);
+            CrashLogService.TryOpen(logPath);
+            RealCopyStatusText.Text = "Copie interrompue. Le dossier partiel est conservé pour diagnostic ; les sources sont intactes.";
+            IdeoDialog.Error(
+                "Copie interrompue",
+                $"{exception.Message}\n\nLes sources n’ont pas été modifiées. Par sécurité, un éventuel dossier partiel n’est jamais supprimé automatiquement.\n\nRapport technique : {logPath}",
+                "On garde les preuves, on ne balaie rien sous le tapis.");
+        }
+        finally
+        {
+            CreateRealPackageButton.IsEnabled = !completed;
+        }
     }
 
     private void OpenLastReportButton_Click(object sender, RoutedEventArgs e) => OpenLastReport();
@@ -681,12 +774,11 @@ public partial class ProductPackageView : UserControl
         if (_selectedVariant == variant) return;
         if (_scanResult is not null)
         {
-            var answer = MessageBox.Show(
-                "Changer de variante effacera l’analyse et la sélection actuelles. Continuer ?",
-                "Changer de variante",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (answer != MessageBoxResult.Yes) return;
+            if (!IdeoDialog.Confirm(
+                    "Changer de variante",
+                    "Changer de variante effacera l’analyse et la sélection actuelles.",
+                    "Les fichiers source, eux, ne bougeront pas d’un millimètre.",
+                    "Changer de variante")) return;
             ResetScan();
         }
         _selectedVariant = variant;
@@ -736,7 +828,7 @@ public partial class ProductPackageView : UserControl
         var source = SourcePathText.Text.Trim();
         if (!Directory.Exists(source))
         {
-            MessageBox.Show("Le dossier source indiqué n’existe pas ou n’est pas accessible.", "Source inaccessible", MessageBoxButton.OK, MessageBoxImage.Warning);
+            IdeoDialog.Warning("Source inaccessible", "Le dossier source indiqué n’existe pas ou n’est pas accessible.");
             return;
         }
 
@@ -746,7 +838,7 @@ public partial class ProductPackageView : UserControl
         }
         catch (Exception exception)
         {
-            MessageBox.Show(exception.Message, "Ouverture impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
+            IdeoDialog.Warning("Ouverture impossible", exception.Message);
         }
     }
 
@@ -846,7 +938,7 @@ public partial class ProductPackageView : UserControl
         catch (Exception exception)
         {
             packageName = string.Empty;
-            MessageBox.Show(exception.Message, "Nom du package", MessageBoxButton.OK, MessageBoxImage.Warning);
+            IdeoDialog.Warning("Nom du package", exception.Message);
             return false;
         }
     }
@@ -868,7 +960,7 @@ public partial class ProductPackageView : UserControl
     {
         if (_scanResult is null)
         {
-            MessageBox.Show("Lance d’abord l’analyse de la source.", "Analyse requise", MessageBoxButton.OK, MessageBoxImage.Information);
+            IdeoDialog.Info("Analyse requise", "Lance d’abord l’analyse de la source.");
             return;
         }
         ShowStep(2);
@@ -878,7 +970,7 @@ public partial class ProductPackageView : UserControl
     {
         if (_lastReportHtml is null)
         {
-            MessageBox.Show("Génère d’abord la simulation depuis l’étape de vérification.", "Rapport non généré", MessageBoxButton.OK, MessageBoxImage.Information);
+            IdeoDialog.Info("Rapport non généré", "Génère d’abord la simulation depuis l’étape de vérification.");
             return;
         }
         ShowStep(4);

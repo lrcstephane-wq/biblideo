@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using Microsoft.Win32;
 using Biblideo.Core.Models;
 using Biblideo.Core.Services;
+using Biblideo.App.Services;
 
 namespace Biblideo.App.Views;
 
@@ -102,11 +103,10 @@ public partial class SettingsView : UserControl
         {
             TestResultText.Text = "Enregistrement impossible sur le réseau.";
             TestResultText.Foreground = System.Windows.Media.Brushes.OrangeRed;
-            MessageBox.Show(
-                $"La configuration partagée n’a pas été modifiée.\n\n{exception.Message}",
+            IdeoDialog.Error(
                 "Enregistrement impossible",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                $"La configuration partagée n’a pas été modifiée.\n\n{exception.Message}",
+                "La configuration a préféré rester là où elle était. Prudente, mais peu coopérative.");
         }
     }
 }

@@ -111,7 +111,21 @@
             </Grid>
 
             <!-- 4. Rapport -->
-            <Border x:Name="ReportPanel" Visibility="Collapsed" Style="{StaticResource ModernPanel}" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="850"><StackPanel><Border Background="#193D38" CornerRadius="30" Width="60" Height="60" HorizontalAlignment="Left"><TextBlock Text="✓" FontSize="30" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#8DDBBF" /></Border><TextBlock Text="Simulation terminée" FontSize="26" FontWeight="SemiBold" Margin="0,18,0,0" /><TextBlock Text="Le rapport est prêt. Aucun fichier métier n’a été créé, copié, déplacé ou supprimé." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,7,0,0" /><Border Background="{StaticResource FieldBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,18,0,0"><TextBlock x:Name="LastReportNameText" Foreground="#8CB9F2" FontFamily="Consolas" TextWrapping="Wrap" /></Border><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Revenir à la sélection" Click="BackToSelectionButton_Click" /><Button Content="Afficher le rapport HTML" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="OpenLastReportButton_Click" /></StackPanel></StackPanel></Border>
+            <Border x:Name="ReportPanel" Visibility="Collapsed" Style="{StaticResource ModernPanel}" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center" Width="760" MaxWidth="850">
+                <StackPanel>
+                    <Border Background="#193D38" CornerRadius="30" Width="60" Height="60" HorizontalAlignment="Left"><TextBlock Text="✓" FontSize="30" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#8DDBBF" /></Border>
+                    <TextBlock Text="Simulation terminée" FontSize="26" FontWeight="SemiBold" Margin="0,18,0,0" />
+                    <TextBlock Text="Le rapport est prêt. Aucun fichier métier n’a été créé, copié, déplacé ou supprimé." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <Border Background="{StaticResource FieldBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,18,0,0"><TextBlock x:Name="LastReportNameText" Foreground="#8CB9F2" FontFamily="Consolas" TextWrapping="Wrap" /></Border>
+                    <Border x:Name="RealCopyPanel" Background="#152E2B" BorderBrush="#337E69" BorderThickness="1" CornerRadius="11" Padding="15" Margin="0,16,0,0">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel><TextBlock Text="COPIE RÉELLE CONTRÔLÉE" Foreground="#78D8B8" FontSize="10" FontWeight="Bold" /><TextBlock x:Name="RealCopyStatusText" Text="Prêt à créer le package : copies uniquement, aucun écrasement." Margin="0,6,18,0" TextWrapping="Wrap" /><ProgressBar x:Name="RealCopyProgress" Minimum="0" Maximum="100" Height="5" Visibility="Collapsed" Margin="0,10,18,0" /></StackPanel>
+                            <Button x:Name="CreateRealPackageButton" Grid.Column="1" Content="Créer le package  →" Style="{StaticResource PrimaryButton}" Padding="16,10" VerticalAlignment="Center" Click="CreateRealPackageButton_Click" />
+                        </Grid>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0"><Button Content="Revenir à la sélection" Click="BackToSelectionButton_Click" /><Button Content="Afficher le rapport HTML" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="OpenLastReportButton_Click" /></StackPanel>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
 </UserControl>

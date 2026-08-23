@@ -2,9 +2,9 @@
 
 Application Windows destinée à sécuriser et accélérer la post-production Biblidéo après validation des composants TopSolid.
 
-## État de la V0
+## État actuel
 
-La V0 fonctionne en **simulation stricte** :
+L’application commence toujours par une **simulation stricte** :
 
 - lecture des bibliothèques SC ou EP ;
 - sélection persistante de plusieurs composants `.top` ;
@@ -21,7 +21,16 @@ La V0 fonctionne en **simulation stricte** :
 - aperçu du package `NNN_Libellé_(SC|EP)` ;
 - rapport HTML détaillant les opérations qui auraient été réalisées.
 
-La V0 ne crée, ne copie, ne déplace, ne renomme, ne compresse et ne supprime aucun fichier métier.
+Après validation de ce rapport, un premier mode de création réelle permet de constituer le package produit. Sa politique est volontairement limitée :
+
+- création d’un nouveau dossier uniquement ;
+- copie des fichiers à leur emplacement relatif exact sous `Bibliotheque` ;
+- refus immédiat si la destination existe déjà ;
+- aucune suppression, aucun déplacement, aucun renommage et aucun écrasement ;
+- contrôle SHA-256 de chaque copie ;
+- manifeste `biblideo.manifest.json` et rapport HTML d’exécution.
+
+Les sources TopSolid restent toujours en lecture seule. Les fonctions de pack mensuel, de déploiement et de licence restent en simulation tant qu’elles n’ont pas reçu leurs propres protections.
 
 ## Architecture
 

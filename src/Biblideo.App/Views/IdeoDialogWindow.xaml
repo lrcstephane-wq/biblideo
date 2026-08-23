@@ -1,0 +1,23 @@
+<Window x:Class="Biblideo.App.Views.IdeoDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="560" SizeToContent="Height" MaxHeight="720"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        KeyDown="Window_KeyDown">
+    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="#506985" BorderThickness="1" CornerRadius="14">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="56" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Border Background="{StaticResource HeaderBrush}" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid Margin="18,0,10,0"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Image Source="/Biblideo;component/Assets/ideo-mark.png" Width="25" Height="25" Margin="0,0,10,0" /><TextBlock x:Name="TitleText" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /></StackPanel><Button Content="×" HorizontalAlignment="Right" VerticalAlignment="Center" Width="34" Height="30" Padding="0" FontSize="18" Background="Transparent" BorderBrush="Transparent" Click="CloseButton_Click" /></Grid>
+            </Border>
+            <Grid Grid.Row="1" Margin="22,22,24,20"><Grid.ColumnDefinitions><ColumnDefinition Width="54" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Border x:Name="IconCircle" Width="42" Height="42" CornerRadius="21" HorizontalAlignment="Left" VerticalAlignment="Top"><TextBlock x:Name="IconText" FontSize="21" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                <StackPanel Grid.Column="1"><TextBlock x:Name="MessageText" FontSize="14" TextWrapping="Wrap" LineHeight="21" /><Border x:Name="AsideBorder" Background="{StaticResource FieldBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="11,8" Margin="0,15,0,0"><TextBlock x:Name="AsideText" Foreground="{StaticResource MutedBrush}" FontSize="11" FontStyle="Italic" TextWrapping="Wrap" /></Border></StackPanel>
+            </Grid>
+            <Border Grid.Row="2" Background="#141F2D" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,14,14" Padding="18,13">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="SecondaryButton" Content="Annuler" MinWidth="100" Margin="0,0,8,0" Click="SecondaryButton_Click" /><Button x:Name="PrimaryButton" Content="OK" MinWidth="100" Style="{StaticResource PrimaryButton}" Click="PrimaryButton_Click" /></StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

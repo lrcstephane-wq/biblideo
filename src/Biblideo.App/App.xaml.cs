@@ -21,11 +21,22 @@ public partial class App : Application
 
         var logPath = TryWriteLog("Erreur d’interface non gérée", e.Exception);
         CrashLogService.TryOpen(logPath);
-        MessageBox.Show(
-            $"BibliDéo a rencontré une erreur. Le rapport vient d’être ouvert dans le Bloc-notes.\n\nUne seule alerte sera affichée pour éviter une boucle.\n\nEmplacement :\n{logPath}",
-            "Erreur BibliDéo",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+        try
+        {
+            IdeoDialog.Error(
+                "Erreur BibliDéo",
+                $"BibliDéo a rencontré une erreur. Le rapport vient d’être ouvert dans le Bloc-notes.\n\nUne seule alerte sera affichée pour éviter une boucle.\n\nEmplacement :\n{logPath}",
+                "Le rapport technique parle couramment développeur. Je m’occupe de la traduction.");
+        }
+        catch
+        {
+            // Ultime filet de sécurité si l’erreur survient avant le chargement des ressources graphiques.
+            MessageBox.Show(
+                $"BibliDéo a rencontré une erreur. Le rapport vient d’être ouvert dans le Bloc-notes.\n\nEmplacement :\n{logPath}",
+                "Erreur BibliDéo",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)

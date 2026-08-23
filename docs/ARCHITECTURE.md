@@ -1,8 +1,8 @@
-# Architecture fonctionnelle V0
+# Architecture fonctionnelle
 
 ## Principe de sécurité
 
-Les services de la V0 n'exposent aucune méthode de copie, déplacement, suppression ou compression. Ils produisent uniquement un `SimulationPlan`, ensuite transformé en rapport HTML.
+Le flux produit un `SimulationPlan`, ensuite transformé en rapport HTML. Une exécution réelle n’est proposée qu’après cette simulation et passe par un service volontairement minimal : création de dossiers et copie avec `FileMode.CreateNew` uniquement. Il n’expose aucune opération d’écrasement, déplacement, renommage ou suppression.
 
 ## Flux package produit
 
@@ -17,6 +17,8 @@ Les services de la V0 n'exposent aucune méthode de copie, déplacement, suppres
 9. Ajout virtuel des icônes de chaque bibliothèque concernée.
 10. Contrôles du modèle et du nom du package.
 11. Affichage du rapport HTML sans écriture métier.
+12. Après confirmation explicite, création optionnelle du nouveau package produit.
+13. Vérification de chaque copie par taille et SHA-256, puis écriture du manifeste et du rapport d’exécution.
 
 ## Expérience de constitution
 
