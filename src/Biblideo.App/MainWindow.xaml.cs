@@ -115,15 +115,18 @@ public partial class MainWindow : Window
     private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string destination }) return;
+        NavigateTo(destination);
+    }
+
+    private void NavigateTo(string destination)
+    {
         foreach (var button in NavigationPanel.Children.OfType<Button>())
-            button.Style = (Style)FindResource(button == sender ? "SideNavActiveButton" : "SideNavButton");
-        if (sender is Button selectedButton)
-            selectedButton.Style = (Style)FindResource("SideNavActiveButton");
+            button.Style = (Style)FindResource(button.Tag?.ToString() == destination ? "SideNavActiveButton" : "SideNavButton");
         switch (destination)
         {
             case "Home":
                 PageTitle.Text = "Vue d’ensemble";
-                PageContent.Content = new DashboardView();
+                PageContent.Content = new DashboardView(_settings, ClientModuleContext.Create(_settings, _clientSettings), NavigateTo);
                 break;
             case "Product":
                 ShowProductPackages();
@@ -134,7 +137,7 @@ public partial class MainWindow : Window
                 break;
             case "Clients":
                 PageTitle.Text = "Clients";
-                PageContent.Content = new ClientsView(ClientModuleContext.Create(_settings, _clientSettings));
+                PageContent.Content = new ClientsView(_settings, ClientModuleContext.Create(_settings, _clientSettings));
                 break;
             case "Licenses":
                 PageTitle.Text = "Licences";

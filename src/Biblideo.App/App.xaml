@@ -46,6 +46,17 @@
         <Style TargetType="UserControl"><Setter Property="Background" Value="{StaticResource BackgroundBrush}" /><Setter Property="Foreground" Value="{StaticResource TextBrush}" /></Style>
         <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource TextBrush}" /></Style>
         <Style TargetType="Label"><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /></Style>
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="#263547" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="#55718F" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="Placement" Value="Mouse" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"/></Border></ControlTemplate></Setter.Value></Setter>
+        </Style>
         <Style x:Key="ModernPanel" TargetType="Border"><Setter Property="Background" Value="{StaticResource SurfaceBrush}" /><Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="12" /></Style>
         <Style x:Key="EyebrowText" TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource AccentBrush}" /><Setter Property="FontSize" Value="10" /><Setter Property="FontWeight" Value="Bold" /></Style>
 
@@ -87,7 +98,7 @@
             <Setter Property="Background" Value="{StaticResource FieldBrush}" /><Setter Property="Foreground" Value="{StaticResource TextBrush}" /><Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="10,7" /><Setter Property="MinHeight" Value="34" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
                 <Grid x:Name="ComboRoot">
-                    <Border x:Name="ComboBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions><ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" TextElement.Foreground="{TemplateBinding Foreground}" /><Path Grid.Column="1" Data="M 0 0 L 5 5 L 10 0" Stroke="{StaticResource MutedBrush}" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid></Border>
+                    <Border x:Name="ComboBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions><ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" TextElement.Foreground="{TemplateBinding Foreground}" /><Path Grid.Column="1" Data="M 0 0 L 5 5 L 10 0" Stroke="{StaticResource MutedBrush}" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid></Border>
                     <ToggleButton Background="Transparent" BorderThickness="0" Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" /></ControlTemplate></ToggleButton.Template></ToggleButton>
                     <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade"><Border Width="{Binding ActualWidth, ElementName=ComboRoot}" MaxHeight="360" Margin="0,4,0,0" Background="{StaticResource SurfaceAltBrush}" BorderBrush="#526A85" BorderThickness="1" CornerRadius="8" Padding="3"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True"><StackPanel IsItemsHost="True" /></ScrollViewer></Border></Popup>
                 </Grid>

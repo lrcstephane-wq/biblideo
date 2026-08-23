@@ -22,6 +22,8 @@ public partial class LicensesView : UserControl
     private readonly List<ClientLicenseRowViewModel> _allTrackingRows = [];
     private ClientRegistry _registry = new();
     private IReadOnlyList<ClientRecord> _clients = [];
+    private LicenseInboxRowViewModel? _selectedInboxRow;
+    private ClientLicenseRowViewModel? _selectedTrackingRow;
     private bool _loading;
 
     public LicensesView(AppSettings settings, ClientModuleContext clientSettings)
@@ -144,6 +146,7 @@ public partial class LicensesView : UserControl
         var ready = _allInboxRows.Count(row => row.IsSelected && row.CanDispatch);
         DispatchSummaryText.Text = selected == 0 ? "Aucun mail sélectionné." : $"{selected} sélectionné(s) · {ready} prêt(s) à distribuer";
         DispatchButton.IsEnabled = ready > 0;
+        TrashSelectedButton.IsEnabled = selected > 0;
     }
 
     private void InboxTab_Click(object sender, RoutedEventArgs e) => ShowInbox();
@@ -154,6 +157,7 @@ public partial class LicensesView : UserControl
         TrackingPanel.Visibility = Visibility.Collapsed;
         InboxTabButton.Style = (Style)FindResource("PrimaryButton");
         TrackingTabButton.Style = (Style)FindResource(typeof(Button));
+        CloseLicenseDetails();
     }
     private void ShowTracking()
     {
@@ -161,6 +165,73 @@ public partial class LicensesView : UserControl
         TrackingPanel.Visibility = Visibility.Visible;
         TrackingTabButton.Style = (Style)FindResource("PrimaryButton");
         InboxTabButton.Style = (Style)FindResource(typeof(Button));
+        CloseLicenseDetails();
+    }
+
+    private void InboxList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (InboxList.SelectedItem is not LicenseInboxRowViewModel row) return;
+        _selectedInboxRow = row;
+        _selectedTrackingRow = null;
+        LicenseDetailEyebrow.Text = "MAIL DE LICENCE";
+        LicenseDetailTitle.Text = row.FileName;
+        LicenseDetailState.Text = row.StatusShort;
+        LicenseDetailState.Foreground = BrushFrom(row.StatusColor);
+        LicenseDetailStateHint.Text = row.MatchDisplay;
+        LicenseDetailExpiry.Text = row.ExpiryDisplay;
+        LicenseDetailClient.Text = row.ClientDisplay;
+        LicenseDetailRecipients.Text = row.Recipients;
+        LicenseDetailDescription.Text = row.Subject;
+        LicenseDetailAssignButton.Visibility = Visibility.Visible;
+        LicenseDetailTrashButton.Visibility = Visibility.Visible;
+        LicenseDetailPlannerButton.Visibility = Visibility.Collapsed;
+        LicenseDetailsPanel.Visibility = Visibility.Visible;
+    }
+
+    private void TrackingList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TrackingList.SelectedItem is not ClientLicenseRowViewModel row) return;
+        _selectedTrackingRow = row;
+        _selectedInboxRow = null;
+        LicenseDetailEyebrow.Text = "SUIVI CLIENT";
+        LicenseDetailTitle.Text = row.ClientName;
+        LicenseDetailState.Text = row.StateDisplay;
+        LicenseDetailState.Foreground = BrushFrom(row.StateColor);
+        LicenseDetailStateHint.Text = row.DaysDisplay;
+        LicenseDetailExpiry.Text = row.ExpiryDisplay;
+        LicenseDetailClient.Text = $"{row.ClientName} · {row.Variant}";
+        LicenseDetailRecipients.Text = row.Client.Emails.Count == 0 ? "Aucune adresse renseignée" : string.Join("\n", row.Client.Emails);
+        LicenseDetailDescription.Text = $"{row.MessageDisplay}. La date la plus lointaine est utilisée lorsqu’un client possède plusieurs licences.";
+        LicenseDetailAssignButton.Visibility = Visibility.Collapsed;
+        LicenseDetailTrashButton.Visibility = Visibility.Collapsed;
+        LicenseDetailPlannerButton.Visibility = row.Summary.State is ClientLicenseState.RenewSoon or ClientLicenseState.Expired ? Visibility.Visible : Visibility.Collapsed;
+        LicenseDetailsPanel.Visibility = Visibility.Visible;
+    }
+
+    private void CloseLicenseDetails_Click(object sender, RoutedEventArgs e) => CloseLicenseDetails();
+    private void CloseLicenseDetails()
+    {
+        LicenseDetailsPanel.Visibility = Visibility.Collapsed;
+        InboxList.SelectedItem = null;
+        TrackingList.SelectedItem = null;
+        _selectedInboxRow = null;
+        _selectedTrackingRow = null;
+    }
+
+    private void DetailOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedInboxRow is not null) OpenMessage_Click(new Button { Tag = _selectedInboxRow }, e);
+        else if (_selectedTrackingRow is not null) OpenClientLicenseFolder_Click(new Button { Tag = _selectedTrackingRow }, e);
+    }
+
+    private void DetailAssign_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedInboxRow is not null) Assign_Click(new Button { Tag = _selectedInboxRow }, e);
+    }
+
+    private void DetailTrash_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedInboxRow is not null) TrashMessage_Click(new Button { Tag = _selectedInboxRow }, e);
     }
 
     private void SummaryFilter_Click(object sender, RoutedEventArgs e)
@@ -190,6 +261,65 @@ public partial class LicensesView : UserControl
     {
         try { Process.Start(new ProcessStartInfo(_settings.LicensePlannerUrl) { UseShellExecute = true }); }
         catch (Exception exception) { IdeoDialog.Warning("Ouverture impossible", exception.Message); }
+    }
+
+    private void OpenTrash_Click(object sender, RoutedEventArgs e)
+    {
+        var path = _settings.GetEffectiveLicenseTrashPath();
+        try
+        {
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+        }
+        catch (Exception exception) { IdeoDialog.Warning("Corbeille inaccessible", exception.Message); }
+    }
+
+    private async void TrashMessage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: LicenseInboxRowViewModel row })
+            await TrashRowsAsync([row]);
+    }
+
+    private async void TrashSelected_Click(object sender, RoutedEventArgs e) =>
+        await TrashRowsAsync(_allInboxRows.Where(row => row.IsSelected).ToArray());
+
+    private async Task TrashRowsAsync(IReadOnlyList<LicenseInboxRowViewModel> rows)
+    {
+        if (rows.Count == 0) return;
+        if (!IdeoDialog.Confirm(
+                "Mettre les mails en corbeille",
+                $"{rows.Count} mail(s) seront retirés de la boîte d’arrivée et déplacés dans la corbeille récupérable.",
+                "Ils ne disparaissent pas : ils prennent simplement des vacances dans le dossier d’à côté.",
+                "Mettre en corbeille")) return;
+
+        IsEnabled = false;
+        var successes = 0;
+        var errors = new List<string>();
+        try
+        {
+            var trashPath = _settings.GetEffectiveLicenseTrashPath();
+            foreach (var row in rows)
+            {
+                var result = await Task.Run(() => _licenseService.MoveVerified(row.Message.FullPath, trashPath));
+                if (result.Success) successes++; else errors.Add($"{row.FileName} : {result.Error}");
+                await _catalogService.AppendHistoryAsync(_settings.GetEffectiveLicenseHistoryPath(), new LicenseHistoryEntry
+                {
+                    Action = "trash",
+                    SourceFile = row.Message.FullPath,
+                    ExpiryDate = row.Message.ExpiryDate,
+                    DestinationFile = result.DestinationPath,
+                    Success = result.Success,
+                    Details = result.Error
+                });
+            }
+        }
+        finally { IsEnabled = true; }
+
+        if (errors.Count == 0)
+            IdeoDialog.Info("Boîte allégée", $"{successes} mail(s) placé(s) dans la corbeille récupérable.", "Aucun .msg n’a été maltraité pendant l’opération.");
+        else
+            IdeoDialog.Warning("Mise en corbeille partielle", $"{successes} mail(s) déplacé(s), {errors.Count} erreur(s).\n\n{string.Join("\n", errors.Take(8))}");
+        await LoadAsync();
     }
 
     private void OpenMessage_Click(object sender, RoutedEventArgs e)
@@ -291,4 +421,7 @@ public partial class LicensesView : UserControl
         _registry.Clients.Add(metadata);
         return metadata;
     }
+
+    private static System.Windows.Media.SolidColorBrush BrushFrom(string color) =>
+        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
 }

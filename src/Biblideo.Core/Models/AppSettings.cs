@@ -18,6 +18,7 @@ public sealed class AppSettings
     public string MonthlyPackagesRootPath { get; set; } = string.Empty;
     public string SevenZipExecutablePath { get; set; } = @"C:\Program Files\7-Zip\7z.exe";
     public string LicenseInboxPath { get; set; } = string.Empty;
+    public string LicenseTrashPath { get; set; } = string.Empty;
     public string LicenseIndexPath { get; set; } = string.Empty;
     public string LicenseHistoryPath { get; set; } = string.Empty;
     public string LicenseClientFolderName { get; set; } = "01_Licence_Biblideo";
@@ -39,6 +40,10 @@ public sealed class AppSettings
     public string GetEffectiveLicenseInboxPath() => string.IsNullOrWhiteSpace(LicenseInboxPath)
         ? CombineWhenConfigured(IdeoSolutionsRootPath, LicenseClientFolderName)
         : LicenseInboxPath;
+
+    public string GetEffectiveLicenseTrashPath() => string.IsNullOrWhiteSpace(LicenseTrashPath)
+        ? CombineWhenConfigured(IdeoSolutionsRootPath, "01_Licence_Biblideo_CORBEILLE")
+        : LicenseTrashPath;
 
     public string GetEffectiveLicenseIndexPath() => string.IsNullOrWhiteSpace(LicenseIndexPath)
         ? Path.Combine(GetApplicationDataRoot(), "Data", "licenses-index.json")

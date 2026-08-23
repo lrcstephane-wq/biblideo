@@ -11,7 +11,7 @@
                 <TextBlock x:Name="FileText" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                 <TextBlock Text="À quel client devons-nous confier ce précieux .msg ?" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,18"/>
                 <TextBlock Text="CLIENT" Style="{StaticResource EyebrowText}"/>
-                <ComboBox x:Name="ClientCombo" Margin="0,7,0,16" DisplayMemberPath="DisplayName" SelectionChanged="SelectionChanged"/>
+                <ComboBox x:Name="ClientCombo" Margin="0,7,0,16" SelectionChanged="SelectionChanged"/>
                 <TextBlock Text="ADRESSE À MÉMORISER" Style="{StaticResource EyebrowText}"/>
                 <ComboBox x:Name="AddressCombo" Margin="0,7,0,12" SelectionChanged="SelectionChanged"/>
                 <CheckBox x:Name="SaveAddressCheck" Content="Ajouter cette adresse à la fiche du client" Foreground="{StaticResource TextBrush}" IsChecked="True"/>

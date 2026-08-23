@@ -172,6 +172,7 @@ public sealed class SettingsService
         public string MonthlyPackagesRootPath { get; set; } = string.Empty;
         public string SevenZipExecutablePath { get; set; } = string.Empty;
         public string LicenseInboxPath { get; set; } = string.Empty;
+        public string LicenseTrashPath { get; set; } = string.Empty;
         public string LicenseIndexPath { get; set; } = string.Empty;
         public string LicenseHistoryPath { get; set; } = string.Empty;
 
@@ -188,6 +189,7 @@ public sealed class SettingsService
             MonthlyPackagesRootPath = settings.MonthlyPackagesRootPath,
             SevenZipExecutablePath = settings.SevenZipExecutablePath,
             LicenseInboxPath = settings.LicenseInboxPath,
+            LicenseTrashPath = settings.LicenseTrashPath,
             LicenseIndexPath = settings.LicenseIndexPath,
             LicenseHistoryPath = settings.LicenseHistoryPath
         };
@@ -205,6 +207,7 @@ public sealed class SettingsService
             settings.MonthlyPackagesRootPath = MonthlyPackagesRootPath;
             settings.SevenZipExecutablePath = SevenZipExecutablePath;
             settings.LicenseInboxPath = LicenseInboxPath;
+            settings.LicenseTrashPath = LicenseTrashPath;
             settings.LicenseIndexPath = LicenseIndexPath;
             settings.LicenseHistoryPath = LicenseHistoryPath;
         }

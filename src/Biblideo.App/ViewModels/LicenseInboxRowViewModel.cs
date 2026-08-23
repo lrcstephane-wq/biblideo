@@ -40,6 +40,18 @@ public sealed class LicenseInboxRowViewModel : INotifyPropertyChanged
             LicenseMatchStatus.Unreadable => Message.Error ?? "Lecture impossible",
             _ => "Aucune adresse connue"
         };
+    public string StatusColor => _assignedClient is not null ? "#56C99B" : Item.MatchStatus switch
+    {
+        LicenseMatchStatus.Ambiguous => "#D89B54",
+        LicenseMatchStatus.Unreadable => "#EF7777",
+        _ => "#C68BE3"
+    };
+    public string StatusShort => _assignedClient is not null ? "Prête" : Item.MatchStatus switch
+    {
+        LicenseMatchStatus.Ambiguous => "Ambiguë",
+        LicenseMatchStatus.Unreadable => "Illisible",
+        _ => "À identifier"
+    };
 
     public bool IsSelected
     {
@@ -56,6 +68,8 @@ public sealed class LicenseInboxRowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanDispatch));
         OnPropertyChanged(nameof(ClientDisplay));
         OnPropertyChanged(nameof(MatchDisplay));
+        OnPropertyChanged(nameof(StatusColor));
+        OnPropertyChanged(nameof(StatusShort));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

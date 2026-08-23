@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using Biblideo.App.Services;
@@ -13,24 +14,104 @@ namespace Biblideo.App.Views;
 
 public partial class ClientsView : UserControl
 {
+    private readonly AppSettings _appSettings;
     private readonly ClientModuleContext _settings;
     private readonly ClientManagementService _managementService = new();
     private readonly ClientRegistryService _registryService = new();
     private readonly OutlookNotificationService _outlookService = new();
+    private readonly LicenseCatalogService _licenseCatalogService = new();
+    private readonly LicenseManagementService _licenseManagementService = new();
     private readonly ObservableCollection<ClientRowViewModel> _visibleRows = [];
     private readonly List<ClientRowViewModel> _allRows = [];
     private ClientRegistry _registry = new();
     private ClientScanResult _lastScan = new();
     private bool _loading;
 
-    public ClientsView(ClientModuleContext settings)
+    public ClientsView(AppSettings appSettings, ClientModuleContext settings)
     {
+        _appSettings = appSettings;
         _settings = settings;
         InitializeComponent();
         DataContext = _visibleRows;
         StatusFilter.SelectedIndex = 0;
         VariantFilter.SelectedIndex = 0;
         Loaded += async (_, _) => await LoadClientsAsync();
+    }
+
+    private async void ClientsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ClientsList.SelectedItem is not ClientRowViewModel row) return;
+        ClientDetailsPanel.DataContext = row;
+        ClientDetailsPanel.Visibility = Visibility.Visible;
+        NoClientEmailText.Visibility = row.Client.Emails.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ClientLicenseExpiryText.Text = "Analyse…";
+        ClientLicenseStateText.Text = "Lecture des licences archivées";
+        ClientHistoryList.ItemsSource = ReadClientHistory(row.Client.DisplayName);
+        await LoadClientLicenseSummaryAsync(row.Client);
+    }
+
+    private async Task LoadClientLicenseSummaryAsync(ClientRecord client)
+    {
+        try
+        {
+            var folder = Path.Combine(client.FullPath, _appSettings.LicenseClientFolderName);
+            var paths = Directory.Exists(folder)
+                ? Directory.EnumerateFiles(folder, "*.msg", SearchOption.TopDirectoryOnly).ToArray()
+                : [];
+            var messages = await _licenseCatalogService.ReadAsync(paths, _appSettings.GetEffectiveLicenseIndexPath());
+            var summary = _licenseManagementService.Summarize(client, messages, DateTime.Today, _appSettings.LicenseRenewalWarningDays);
+            if (ClientDetailsPanel.DataContext is not ClientRowViewModel current || current.Client.MetadataId != client.MetadataId) return;
+            ClientLicenseExpiryText.Text = summary.ExpiryDate?.ToString("dd/MM/yyyy") ?? "Pas de licence";
+            ClientLicenseStateText.Text = summary.State switch
+            {
+                ClientLicenseState.Valid => $"Valide · {summary.DaysRemaining} jours restants",
+                ClientLicenseState.RenewSoon => $"À renouveler · {summary.DaysRemaining} jours restants",
+                ClientLicenseState.Expired => $"Expirée depuis {-summary.DaysRemaining} jours",
+                ClientLicenseState.OffSubscription => "Hors mise à jour",
+                ClientLicenseState.Unreadable => "Échéance à vérifier",
+                _ => "Aucun mail archivé"
+            };
+        }
+        catch (Exception exception)
+        {
+            ClientLicenseExpiryText.Text = "Indisponible";
+            ClientLicenseStateText.Text = exception.Message;
+        }
+    }
+
+    private IReadOnlyList<ClientHistoryDisplay> ReadClientHistory(string clientName)
+    {
+        if (!File.Exists(_settings.ClientHistoryPath)) return [];
+        var entries = new List<ClientHistoryDisplay>();
+        foreach (var line in File.ReadLines(_settings.ClientHistoryPath).TakeLast(100).Reverse())
+        {
+            try
+            {
+                var item = JsonSerializer.Deserialize<ClientHistoryEntry>(line);
+                if (item is null || !item.ClientName.Contains(clientName, StringComparison.CurrentCultureIgnoreCase)) continue;
+                entries.Add(new ClientHistoryDisplay(
+                    item.TimestampUtc.ToLocalTime().ToString("dd/MM HH:mm"),
+                    item.Action switch
+                    {
+                        "create" => "Client créé",
+                        "edit" => "Fiche modifiée",
+                        "subscription_change" => "Abonnement modifié",
+                        "repair_structure" => "Structure réparée",
+                        "license_email_added" => "Adresse licence ajoutée",
+                        _ => "Opération enregistrée"
+                    },
+                    item.Details ?? item.After ?? item.Before ?? string.Empty));
+                if (entries.Count == 6) break;
+            }
+            catch { }
+        }
+        return entries;
+    }
+
+    private void CloseClientDetails_Click(object sender, RoutedEventArgs e)
+    {
+        ClientDetailsPanel.Visibility = Visibility.Collapsed;
+        ClientsList.SelectedItem = null;
     }
 
     private async Task LoadClientsAsync()
@@ -330,4 +411,6 @@ public partial class ClientsView : UserControl
         _registry.Clients.Add(metadata);
         return metadata;
     }
+
+    private sealed record ClientHistoryDisplay(string When, string Title, string Detail);
 }
