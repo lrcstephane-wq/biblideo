@@ -12,8 +12,10 @@ namespace Biblideo.App;
 public partial class MainWindow : Window
 {
     private readonly SettingsService _settingsService = new();
+    private readonly ClientModuleSettingsService _clientSettingsService = new();
     private readonly ApplicationUpdateService _updateService = new();
     private AppSettings _settings = new();
+    private ClientModuleSettings _clientSettings = new();
 
     public MainWindow()
     {
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _settings = await _settingsService.LoadAsync();
+        _clientSettings = await _clientSettingsService.LoadAsync(_settings);
         if (_settingsService.LastLoadUsedCache)
         {
             AppModeText.Text = "Configuration réseau indisponible · copie locale utilisée";
@@ -127,14 +130,17 @@ public partial class MainWindow : Window
                 break;
             case "Settings":
                 PageTitle.Text = "Paramètres";
-                PageContent.Content = new SettingsView(_settings, _settingsService, OnSettingsSaved);
+                PageContent.Content = new SettingsView(_settings, _clientSettings, _settingsService, _clientSettingsService, OnSettingsSaved);
+                break;
+            case "Clients":
+                PageTitle.Text = "Clients";
+                PageContent.Content = new ClientsView(ClientModuleContext.Create(_settings, _clientSettings));
                 break;
             default:
                 PageTitle.Text = destination switch
                 {
                     "Monthly" => "Packs mensuels",
                     "Deployment" => "Déploiement",
-                    "Clients" => "Clients",
                     "Licenses" => "Licences",
                     _ => destination
                 };
@@ -149,9 +155,10 @@ public partial class MainWindow : Window
         PageContent.Content = new ProductPackageView(_settings);
     }
 
-    private void OnSettingsSaved(AppSettings settings)
+    private void OnSettingsSaved(AppSettings settings, ClientModuleSettings clientSettings)
     {
         _settings = settings;
+        _clientSettings = clientSettings;
     }
 
     private void ApplyDarkTitleBar()

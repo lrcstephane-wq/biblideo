@@ -28,6 +28,22 @@
                     <TextBlock Grid.Row="9" Text="7-Zip — 7z.exe" VerticalAlignment="Center"/><TextBox x:Name="SevenZipText" Grid.Row="9" Grid.Column="1" Margin="8"/><Button Grid.Row="9" Grid.Column="2" Content="Parcourir" Margin="4" Click="BrowseExecutable_Click"/>
                 </Grid>
             </Border>
+            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14" Padding="22" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="GESTION DES CLIENTS" Style="{StaticResource EyebrowText}" Margin="0,0,0,12"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/><ColumnDefinition Width="95"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <TextBlock Text="Archives clients" VerticalAlignment="Center"/><TextBox x:Name="ClientArchiveText" Grid.Column="1" Margin="8"/><Button Grid.Column="2" Content="Parcourir" Margin="4" Tag="ClientArchiveText" Click="BrowseFolder_Click"/>
+                        <TextBlock Grid.Row="1" Text="Registre clients partagé" VerticalAlignment="Center"/><TextBox x:Name="ClientRegistryText" Grid.Row="1" Grid.Column="1" Margin="8"/><Button Grid.Row="1" Grid.Column="2" Content="Choisir" Margin="4" Tag="ClientRegistryText|clients.json" Click="BrowseDataFile_Click"/>
+                        <TextBlock Grid.Row="2" Text="Historique partagé" VerticalAlignment="Center"/><TextBox x:Name="ClientHistoryText" Grid.Row="2" Grid.Column="1" Margin="8"/><Button Grid.Row="2" Grid.Column="2" Content="Choisir" Margin="4" Tag="ClientHistoryText|clients-history.jsonl" Click="BrowseDataFile_Click"/>
+                        <TextBlock Grid.Row="3" Text="Marqueur abonnement MAJ" VerticalAlignment="Center"/><TextBox x:Name="ClientMarkerText" Grid.Row="3" Grid.Column="1" Margin="8" MaxLength="8"/><TextBlock Grid.Row="3" Grid.Column="2" Text="Défaut : _" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Row="4" Text="Sous-dossiers client" VerticalAlignment="Center"/><TextBox x:Name="ClientFoldersText" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Margin="8" ToolTip="Séparer les dossiers par un point-virgule"/>
+                        <TextBlock Grid.Row="5" Text="Notifications Outlook" VerticalAlignment="Center"/><TextBox x:Name="ClientRecipientsText" Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" Margin="8" ToolTip="Séparer les adresses par un point-virgule"/>
+                    </Grid>
+                    <TextBlock Text="Le marqueur est un réglage avancé. Le modifier ne renomme pas automatiquement les dossiers existants : l’onglet Clients les signalera avant toute intervention." Foreground="{StaticResource WarningBrush}" FontSize="10" TextWrapping="Wrap" Margin="8,8,0,0"/>
+                </StackPanel>
+            </Border>
             <Grid Margin="0,16,0,0">
                 <TextBlock x:Name="TestResultText" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
