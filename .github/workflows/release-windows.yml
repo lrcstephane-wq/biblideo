@@ -1,0 +1,36 @@
+name: Publication Windows
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Déterminer la version
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publier l'application
+        run: dotnet publish src/Biblideo.App/Biblideo.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -p:Version=${{ steps.version.outputs.value }} --output publish
+
+      - name: Publier la GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: gh release create "${{ github.ref_name }}" "publish/Biblideo.exe" --title "Biblidéo ${{ steps.version.outputs.value }}" --generate-notes
