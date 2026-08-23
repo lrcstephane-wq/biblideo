@@ -34,6 +34,23 @@ try
     var cached = await settingsService.LoadAsync();
     Check(settingsService.LastLoadUsedCache, "La copie locale doit être utilisée si le réseau est indisponible.");
     Check(cached.SourceScPath == settings.SourceScPath, "La copie locale doit conserver les réglages partagés.");
+
+    var libraryRoot = Path.Combine(testRoot, "library");
+    var componentRoot = Path.Combine(libraryRoot, "_Ideo_Utilisateur", "Caisson");
+    Directory.CreateDirectory(componentRoot);
+    var topPath = Path.Combine(componentRoot, "Corps_Meuble#V=Caisson#I=00#R=NR#C=Basique.top");
+    File.WriteAllText(topPath, "top");
+    File.WriteAllText(topPath + ".png", "png");
+    File.WriteAllText(Path.Combine(componentRoot, "Corps_Meuble#V=Caisson#I=00.cat"), "cat");
+    File.WriteAllText(Path.Combine(componentRoot, "temp.bak"), "bak");
+    File.WriteAllText(Path.Combine(componentRoot, "lib.cfg"), "cfg");
+    File.WriteAllText(Path.Combine(componentRoot, "inattendu"), "sans extension");
+
+    var scan = await new LibraryScanner().ScanAsync(libraryRoot);
+    Check(scan.Components.Count == 1, "Le scanner doit trouver le composant .top de test.");
+    Check(scan.Components[0].AssociatedFiles.Count == 2, "Le PNG et le CAT associés doivent être détectés.");
+    Check(scan.IgnoredBakCount == 1 && scan.IgnoredCfgCount == 1, "Les fichiers .bak et .cfg doivent être ignorés.");
+    Check(scan.ExtensionlessCount == 1 && scan.Warnings.Count > 0, "Un fichier sans extension doit être signalé sans bloquer l’analyse.");
 }
 finally
 {

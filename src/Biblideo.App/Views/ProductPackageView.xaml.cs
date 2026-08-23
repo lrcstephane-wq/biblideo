@@ -1,13 +1,16 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using Biblideo.App.ViewModels;
+using Biblideo.App.Services;
 using Biblideo.Core.Models;
 using Biblideo.Core.Services;
+using Microsoft.Win32;
 
 namespace Biblideo.App.Views;
 
@@ -17,7 +20,7 @@ public partial class ProductPackageView : UserControl
     private readonly LibraryScanner _scanner = new();
     private readonly ProductPackageSimulationService _simulationService = new();
     private readonly HtmlReportService _reportService = new();
-    private readonly ObservableCollection<ComponentRowViewModel> _rows = [];
+    private ObservableCollection<ComponentRowViewModel> _rows = [];
     private readonly ObservableCollection<LibraryFilterNode> _libraryNodes = [];
     private readonly Stack<HashSet<ComponentRowViewModel>> _selectionHistory = new();
     private ICollectionView? _rowsView;
@@ -30,6 +33,7 @@ public partial class ProductPackageView : UserControl
     private int _currentStep = 1;
     private bool _suppressSelectionSync;
     private bool _isBuildingFilters;
+    private bool _isInitializingIdentity;
     private string? _lastReportHtml;
     private string? _lastReportFileName;
 
@@ -42,6 +46,7 @@ public partial class ProductPackageView : UserControl
 
     private void ProductPackageView_Loaded(object sender, RoutedEventArgs e)
     {
+        _isInitializingIdentity = true;
         RefreshCounter();
         RefreshPackagePreview();
         RefreshVariantVisuals();
@@ -49,24 +54,33 @@ public partial class ProductPackageView : UserControl
         LibraryList.ItemsSource = _libraryNodes;
         RefreshSelectionSummary();
         ShowStep(1);
+        _isInitializingIdentity = false;
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         if (!TryGetPackageName(out _)) return;
 
-        var source = _settings.GetSourcePath(_selectedVariant);
+        var source = SourcePathText.Text.Trim();
+        if (!Directory.Exists(source))
+        {
+            MessageBox.Show(
+                $"Le dossier source est introuvable.\n\n{source}\n\nModifie le chemin ou utilise le bouton Parcourir.",
+                "Source inaccessible",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
         IdentityScanProgress.Visibility = Visibility.Visible;
         IdentityStatusText.Text = $"Analyse en lecture seule : {source}";
         IsEnabled = false;
         try
         {
             _scanResult = await _scanner.ScanAsync(source);
-            _rows.Clear();
-            foreach (var component in _scanResult.Components)
-            {
-                _rows.Add(new ComponentRowViewModel(component));
-            }
+            ComponentsList.ItemsSource = null;
+            _rowsView = null;
+            _rows = new ObservableCollection<ComponentRowViewModel>(
+                _scanResult.Components.Select(component => new ComponentRowViewModel(component)));
 
             _rowsView = CollectionViewSource.GetDefaultView(_rows);
             _rowsView.Filter = FilterRow;
@@ -82,7 +96,12 @@ public partial class ProductPackageView : UserControl
         }
         catch (Exception exception)
         {
-            MessageBox.Show(exception.Message, "Analyse impossible", MessageBoxButton.OK, MessageBoxImage.Error);
+            var logPath = TryWriteScanLog(exception);
+            MessageBox.Show(
+                $"L’analyse n’a pas pu être terminée.\n\n{exception.Message}\n\nDétail technique :\n{logPath}",
+                "Analyse impossible",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
             IdentityStatusText.Text = "Analyse interrompue. Vérifie le chemin source dans les paramètres.";
         }
         finally
@@ -174,8 +193,9 @@ public partial class ProductPackageView : UserControl
         };
         if (active)
         {
-            button.Background = (Brush)FindResource("AccentDarkBrush");
+            button.Background = new SolidColorBrush(Color.FromRgb(234, 242, 252));
             button.BorderBrush = (Brush)FindResource("AccentBrush");
+            button.Foreground = (Brush)FindResource("AccentDarkBrush");
         }
         button.Click += FamilyFilterButton_Click;
         FamilyFiltersPanel.Children.Add(button);
@@ -398,6 +418,13 @@ public partial class ProductPackageView : UserControl
             MessageBox.Show("Analyse d’abord la bibliothèque source.", "Analyse requise", MessageBoxButton.OK, MessageBoxImage.Information);
             return false;
         }
+        if (!Path.TrimEndingDirectorySeparator(_scanResult.SourceRoot).Equals(
+                Path.TrimEndingDirectorySeparator(SourcePathText.Text.Trim()),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("Le chemin source a changé depuis la dernière analyse. Relance l’analyse avant de continuer.", "Nouvelle analyse requise", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
         if (_rows.All(row => !row.IsSelected))
         {
             MessageBox.Show("Ajoute au moins un composant au package.", "Package vide", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -487,12 +514,69 @@ public partial class ProductPackageView : UserControl
         RefreshPackagePreview();
     }
 
+    private void CounterText_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isInitializingIdentity) return;
+        if (int.TryParse(CounterText.Text.Trim(), out var counter) && counter is >= 0 and <= 999)
+        {
+            _nextCounter = counter;
+            CounterText.ClearValue(Control.BorderBrushProperty);
+            CounterBadgeText.Text = $"COMPTEUR {_nextCounter:000}";
+            RefreshPackagePreview();
+            return;
+        }
+
+        CounterText.BorderBrush = Brushes.OrangeRed;
+        PackageNamePreview.Text = "Compteur invalide · valeur attendue de 000 à 999";
+    }
+
+    private void SourcePathText_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isInitializingIdentity || !IsLoaded) return;
+        IdentityStatusText.Text = Directory.Exists(SourcePathText.Text.Trim())
+            ? "Source accessible · prête pour une nouvelle analyse."
+            : "Source introuvable · corrige le chemin avant l’analyse.";
+    }
+
+    private void BrowseSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        var current = SourcePathText.Text.Trim();
+        var dialog = new OpenFolderDialog
+        {
+            Title = $"Choisir la bibliothèque source {_selectedVariant}",
+            InitialDirectory = Directory.Exists(current) ? current : string.Empty
+        };
+        if (dialog.ShowDialog() == true) SourcePathText.Text = dialog.FolderName;
+    }
+
+    private void OpenSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        var source = SourcePathText.Text.Trim();
+        if (!Directory.Exists(source))
+        {
+            MessageBox.Show("Le dossier source indiqué n’existe pas ou n’est pas accessible.", "Source inaccessible", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{source}\"") { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, "Ouverture impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void RefreshVariantVisuals()
     {
         var accent = (Brush)FindResource("AccentDarkBrush");
         var normal = (Brush)FindResource("SurfaceAltBrush");
+        var normalText = (Brush)FindResource("TextBrush");
         VariantScButton.Background = _selectedVariant == LibraryVariant.SC ? accent : normal;
         VariantEpButton.Background = _selectedVariant == LibraryVariant.EP ? accent : normal;
+        VariantScButton.Foreground = _selectedVariant == LibraryVariant.SC ? Brushes.White : normalText;
+        VariantEpButton.Foreground = _selectedVariant == LibraryVariant.EP ? Brushes.White : normalText;
         VariantScButton.BorderBrush = _selectedVariant == LibraryVariant.SC ? (Brush)FindResource("AccentBrush") : (Brush)FindResource("BorderBrush");
         VariantEpButton.BorderBrush = _selectedVariant == LibraryVariant.EP ? (Brush)FindResource("AccentBrush") : (Brush)FindResource("BorderBrush");
     }
@@ -534,15 +618,30 @@ public partial class ProductPackageView : UserControl
 
     private void RefreshCounter()
     {
-        _nextCounter = NamingService.FindNextCounter(_settings.ProductArchivesPath, _settings.ProductStagingPath);
-        CounterText.Text = _nextCounter.ToString("000");
-        CounterBadgeText.Text = $"COMPTEUR {_nextCounter:000}";
+        try
+        {
+            _nextCounter = NamingService.FindNextCounter(_settings.ProductArchivesPath, _settings.ProductStagingPath);
+            CounterText.Text = _nextCounter.ToString("000");
+            CounterBadgeText.Text = $"COMPTEUR {_nextCounter:000}";
+        }
+        catch (Exception exception)
+        {
+            _nextCounter = 1;
+            CounterText.Text = "001";
+            CounterBadgeText.Text = "COMPTEUR 001 · À VÉRIFIER";
+            IdentityStatusText.Text = $"Compteur automatique indisponible : {exception.Message}";
+        }
     }
 
     private void RefreshPackagePreview()
     {
         try
         {
+            if (IsLoaded && (!int.TryParse(CounterText.Text.Trim(), out _nextCounter) || _nextCounter is < 0 or > 999))
+            {
+                PackageNamePreview.Text = "Compteur invalide · valeur attendue de 000 à 999";
+                return;
+            }
             PackageNamePreview.Text = NamingService.BuildProductPackageName(_nextCounter, PackageLabelText.Text, _selectedVariant);
         }
         catch
@@ -555,6 +654,10 @@ public partial class ProductPackageView : UserControl
     {
         try
         {
+            if (!int.TryParse(CounterText.Text.Trim(), out _nextCounter) || _nextCounter is < 0 or > 999)
+            {
+                throw new ArgumentException("Le compteur doit être un nombre compris entre 000 et 999.");
+            }
             packageName = NamingService.BuildProductPackageName(_nextCounter, PackageLabelText.Text, _selectedVariant);
             return true;
         }
@@ -563,6 +666,18 @@ public partial class ProductPackageView : UserControl
             packageName = string.Empty;
             MessageBox.Show(exception.Message, "Nom du package", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
+        }
+    }
+
+    private static string TryWriteScanLog(Exception exception)
+    {
+        try
+        {
+            return CrashLogService.Write("Analyse de bibliothèque", exception);
+        }
+        catch
+        {
+            return "Journal local indisponible";
         }
     }
 
@@ -596,16 +711,21 @@ public partial class ProductPackageView : UserControl
         ReportPanel.Visibility = step == 4 ? Visibility.Visible : Visibility.Collapsed;
         StepProgress.Value = step * 25;
 
-        var active = (Brush)FindResource("AccentDarkBrush");
-        var inactive = (Brush)FindResource("SurfaceAltBrush");
-        var circleInactive = new SolidColorBrush(Color.FromRgb(36, 52, 77));
+        var active = new SolidColorBrush(Color.FromRgb(234, 242, 252));
+        var inactive = Brushes.White;
+        var circleActive = (Brush)FindResource("AccentDarkBrush");
+        var circleInactive = new SolidColorBrush(Color.FromRgb(226, 233, 242));
         var buttons = new[] { Step1Button, Step2Button, Step3Button, Step4Button };
         var circles = new[] { Step1Circle, Step2Circle, Step3Circle, Step4Circle };
         for (var index = 0; index < buttons.Length; index++)
         {
             var isActive = index + 1 == _currentStep;
             buttons[index].Background = isActive ? active : inactive;
-            circles[index].Background = isActive ? active : circleInactive;
+            circles[index].Background = isActive ? circleActive : circleInactive;
+            if (circles[index].Child is TextBlock circleText)
+            {
+                circleText.Foreground = isActive ? Brushes.White : (Brush)FindResource("MutedBrush");
+            }
         }
     }
 }

@@ -19,11 +19,11 @@ public sealed class LibraryScanner
             throw new DirectoryNotFoundException($"La bibliothèque source est introuvable : {sourceRoot}");
         }
 
-        var allFiles = Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories).ToArray();
+        var warnings = new List<string>();
+        var allFiles = EnumerateFilesSafely(sourceRoot, warnings, cancellationToken);
         var catIndex = BuildCatIndex(allFiles);
         var assets = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var components = new List<ComponentDescriptor>();
-        var warnings = new List<string>();
         var ignoredBak = 0;
         var ignoredCfg = 0;
         var extensionless = 0;
@@ -149,5 +149,60 @@ public sealed class LibraryScanner
             matches.Add(file);
         }
         return index;
+    }
+
+    private static IReadOnlyList<string> EnumerateFilesSafely(
+        string sourceRoot,
+        ICollection<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var files = new List<string>();
+        var pending = new Stack<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        pending.Push(Path.GetFullPath(sourceRoot));
+
+        while (pending.TryPop(out var directory))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!visited.Add(directory)) continue;
+
+            try
+            {
+                files.AddRange(Directory.EnumerateFiles(directory));
+            }
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                warnings.Add($"Dossier partiellement inaccessible : {Path.GetRelativePath(sourceRoot, directory)} ({exception.Message})");
+            }
+
+            try
+            {
+                foreach (var child in Directory.EnumerateDirectories(directory))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var attributes = File.GetAttributes(child);
+                        if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        {
+                            warnings.Add($"Lien de dossier ignoré : {Path.GetRelativePath(sourceRoot, child)}");
+                            continue;
+                        }
+                    }
+                    catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+                    {
+                        warnings.Add($"Dossier inaccessible ignoré : {Path.GetRelativePath(sourceRoot, child)} ({exception.Message})");
+                        continue;
+                    }
+                    pending.Push(child);
+                }
+            }
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                warnings.Add($"Sous-dossiers inaccessibles : {Path.GetRelativePath(sourceRoot, directory)} ({exception.Message})");
+            }
+        }
+
+        return files;
     }
 }
