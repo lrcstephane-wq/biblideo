@@ -3,89 +3,36 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Biblidéo — Post-production" Height="900" Width="1500"
         Icon="/Biblideo;component/Assets/ideo-mark.png"
+        Background="{StaticResource BackgroundBrush}"
         MinHeight="720" MinWidth="1180" WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <Style x:Key="SideNavButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#DCE7F6"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="Padding" Value="14,11"/>
-            <Setter Property="Margin" Value="0,3"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="NavBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NavBorder" Property="Background" Value="#16345A"/></Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="#C9D5E5" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="HorizontalContentAlignment" Value="Left" /><Setter Property="Padding" Value="13,10" /><Setter Property="Margin" Value="0,2" /><Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="NavBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NavBorder" Property="Background" Value="#172E4A" /><Setter Property="Foreground" Value="White" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
         </Style>
-        <Style x:Key="SideNavActiveButton" TargetType="Button" BasedOn="{StaticResource SideNavButton}">
-            <Setter Property="Background" Value="#2E63AE"/>
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
+        <Style x:Key="SideNavActiveButton" TargetType="Button" BasedOn="{StaticResource SideNavButton}"><Setter Property="Background" Value="#2E69B3" /><Setter Property="Foreground" Value="White" /><Setter Property="BorderBrush" Value="#4D8BD4" /></Style>
     </Window.Resources>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="232" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-
-        <Border Grid.Column="0" Background="#0C203B" BorderBrush="#173657" BorderThickness="0,0,1,0">
-            <Grid Margin="18">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <StackPanel Margin="8,10,8,24">
-                    <Image Source="/Biblideo;component/Assets/ideo-logo.png" Height="58" Stretch="Uniform" HorizontalAlignment="Left" />
-                    <TextBlock Text="POST-PRODUCTION" Margin="2,6,0,0" FontSize="10" FontWeight="SemiBold" Foreground="#8FA9C8" />
-                </StackPanel>
-                <Border Grid.Row="1" Background="#143457" CornerRadius="8" Padding="10,7" Margin="0,0,0,18">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="#34D399" Margin="0,0,8,0" />
-                        <TextBlock Text="V0 · SIMULATION STRICTE" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-                <StackPanel Grid.Row="2">
-                    <Button x:Name="HomeButton" Content="⌂   Vue d’ensemble" Tag="Home" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
+    <Grid Background="{StaticResource BackgroundBrush}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="242" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <Border Background="{StaticResource NavigationBrush}" BorderBrush="#243A54" BorderThickness="0,0,1,0">
+            <Grid Margin="17"><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <StackPanel Margin="8,10,8,22"><Image Source="/Biblideo;component/Assets/ideo-logo.png" Height="58" Stretch="Uniform" HorizontalAlignment="Left" /><TextBlock Text="POST-PRODUCTION" Margin="2,6,0,0" FontSize="10" FontWeight="SemiBold" Foreground="#8FA9C8" /></StackPanel>
+                <Border Grid.Row="1" Background="#15385F" CornerRadius="7" Padding="10,7" Margin="0,0,0,17"><StackPanel Orientation="Horizontal"><Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" Margin="0,0,8,0" /><TextBlock Text="SIMULATION STRICTE" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Foreground="#E5F0FC" /></StackPanel></Border>
+                <StackPanel x:Name="NavigationPanel" Grid.Row="2">
+                    <Button Content="⌂   Vue d’ensemble" Tag="Home" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
                     <Button x:Name="ProductButton" Content="▦   Packages produit" Tag="Product" Click="NavigationButton_Click" Style="{StaticResource SideNavActiveButton}" />
                     <Button Content="▣   Packs mensuels" Tag="Monthly" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
                     <Button Content="⇢   Déploiement" Tag="Deployment" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
                     <Button Content="♙   Clients" Tag="Clients" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
                     <Button Content="◇   Licences" Tag="Licenses" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
                 </StackPanel>
-                <StackPanel Grid.Row="3">
-                    <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,12" />
-                    <Button Content="⚙   Paramètres" Tag="Settings" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" />
-                    <TextBlock Text="Idéo Solutions" Foreground="#7792B2" FontSize="11" Margin="10,14,0,0" />
-                </StackPanel>
+                <StackPanel Grid.Row="3"><Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,11" /><Button Content="⚙   Paramètres" Tag="Settings" Click="NavigationButton_Click" Style="{StaticResource SideNavButton}" /><Grid Margin="10,13,8,0"><TextBlock Text="Idéo Solutions" Foreground="#7F99B8" FontSize="11" /><TextBlock x:Name="VersionText" HorizontalAlignment="Right" Foreground="{StaticResource SubtleBrush}" FontSize="10" /></Grid></StackPanel>
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="68" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Background="#30363E">
-                <Grid Margin="28,0">
-                    <TextBlock x:Name="PageTitle" Text="Packages produit" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <TextBlock x:Name="AppModeText" Text="Aucune écriture dans les dossiers métier" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" />
-                        <Button x:Name="UpdateButton" Visibility="Collapsed" Margin="14,0,0,0" Padding="11,6" Style="{StaticResource PrimaryButton}" Click="UpdateButton_Click" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-            <ContentControl x:Name="PageContent" Grid.Row="1" />
+        <Grid Grid.Column="1" Background="{StaticResource BackgroundBrush}"><Grid.RowDefinitions><RowDefinition Height="64" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Background="{StaticResource HeaderBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"><Grid Margin="24,0"><StackPanel VerticalAlignment="Center"><TextBlock x:Name="PageTitle" Text="Packages produit" FontSize="21" FontWeight="SemiBold" /><TextBlock Text="Atelier de post-production Biblidéo" Foreground="{StaticResource SubtleBrush}" FontSize="10" Margin="0,2,0,0" /></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBlock x:Name="AppModeText" Text="Aucune écriture dans les dossiers métier" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" /><Button x:Name="UpdateButton" Content="Mise à jour" Margin="14,0,0,0" Padding="11,6" Click="UpdateButton_Click" ToolTip="Rechercher une nouvelle version de Biblidéo" /></StackPanel></Grid></Border>
+            <ContentControl x:Name="PageContent" Grid.Row="1" Background="{StaticResource BackgroundBrush}" />
         </Grid>
     </Grid>
 </Window>

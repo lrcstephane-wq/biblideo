@@ -7,10 +7,10 @@
     <AssemblyName>Biblideo</AssemblyName>
     <RootNamespace>Biblideo.App</RootNamespace>
     <StartupObject>Biblideo.App.Program</StartupObject>
+    <Version>1.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Biblideo.Core\Biblideo.Core.csproj" />
-    <PackageReference Include="Velopack" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Remove="App.xaml" />

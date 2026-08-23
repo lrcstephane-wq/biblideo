@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
 using Biblideo.App.Views;
 using Biblideo.App.Services;
 using Biblideo.Core.Models;
@@ -17,6 +19,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Loaded += MainWindow_Loaded;
+        SourceInitialized += (_, _) => ApplyDarkTitleBar();
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -28,6 +31,7 @@ public partial class MainWindow : Window
             AppModeText.Foreground = System.Windows.Media.Brushes.Khaki;
         }
         ShowProductPackages();
+        VersionText.Text = $"v{_updateService.CurrentVersion}";
         _ = CheckForUpdatesAsync();
     }
 
@@ -36,9 +40,14 @@ public partial class MainWindow : Window
         try
         {
             var version = await _updateService.CheckAsync();
-            if (version is null) return;
-            UpdateButton.Content = $"Mise à jour {version}";
-            UpdateButton.Visibility = Visibility.Visible;
+            if (version is null)
+            {
+                UpdateButton.Content = "À jour";
+                UpdateButton.ToolTip = $"Biblidéo {_updateService.CurrentVersion} · cliquer pour vérifier";
+                return;
+            }
+            UpdateButton.Content = $"Installer v{version}";
+            UpdateButton.Style = (Style)FindResource("PrimaryButton");
         }
         catch
         {
@@ -48,8 +57,36 @@ public partial class MainWindow : Window
 
     private async void UpdateButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_updateService.AvailableVersion is null)
+        {
+            UpdateButton.IsEnabled = false;
+            UpdateButton.Content = "Recherche…";
+            try
+            {
+                var version = await _updateService.CheckAsync();
+                if (version is null)
+                {
+                    UpdateButton.Content = "À jour";
+                    MessageBox.Show($"Biblidéo {_updateService.CurrentVersion} est déjà à jour.", "Mise à jour", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                UpdateButton.Content = $"Installer v{version}";
+                UpdateButton.Style = (Style)FindResource("PrimaryButton");
+            }
+            catch (Exception exception)
+            {
+                UpdateButton.Content = "Réessayer";
+                MessageBox.Show(exception.Message, "Vérification impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            finally
+            {
+                UpdateButton.IsEnabled = true;
+            }
+        }
+
         if (MessageBox.Show(
-                "La mise à jour va être téléchargée, puis Biblidéo redémarrera. Continuer ?",
+                $"La version {_updateService.AvailableVersion} va être téléchargée. Biblidéo se fermera, remplacera son exécutable puis redémarrera automatiquement. Continuer ?",
                 "Mise à jour Biblidéo",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
@@ -75,6 +112,10 @@ public partial class MainWindow : Window
     private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string destination }) return;
+        foreach (var button in NavigationPanel.Children.OfType<Button>())
+            button.Style = (Style)FindResource(button == sender ? "SideNavActiveButton" : "SideNavButton");
+        if (sender is Button selectedButton)
+            selectedButton.Style = (Style)FindResource("SideNavActiveButton");
         switch (destination)
         {
             case "Home":
@@ -112,4 +153,16 @@ public partial class MainWindow : Window
     {
         _settings = settings;
     }
+
+    private void ApplyDarkTitleBar()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var enabled = 1;
+        var handle = new WindowInteropHelper(this).Handle;
+        if (DwmSetWindowAttribute(handle, 20, ref enabled, sizeof(int)) != 0)
+            DwmSetWindowAttribute(handle, 19, ref enabled, sizeof(int));
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 }

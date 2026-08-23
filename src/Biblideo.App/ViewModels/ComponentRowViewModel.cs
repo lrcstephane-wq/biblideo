@@ -30,6 +30,20 @@ public sealed class ComponentRowViewModel : INotifyPropertyChanged
     public string Type => Component.TypeName;
     public string Name => Component.ComponentName;
     public string TechnicalName => Component.TechnicalName;
+    public string LocationSummary => $"{Library}  ›  {Family}";
+    public string FolderSummary => Path.GetDirectoryName(Component.RelativeTopPath) ?? Library;
+    public string TopFileName => Path.GetFileName(Component.TopFilePath);
+    public string BundleSummary
+    {
+        get
+        {
+            var formats = new List<string> { "TOP" };
+            if (Component.AssociatedFiles.Any(file => file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))) formats.Add("PNG");
+            if (Component.AssociatedFiles.Any(file => file.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase))) formats.Add("BMP");
+            if (Component.AssociatedFiles.Any(file => file.EndsWith(".cat", StringComparison.OrdinalIgnoreCase))) formats.Add("CAT");
+            return string.Join("  +  ", formats);
+        }
+    }
     public int AssociatedCount => Component.AssociatedFiles.Count;
     public int FileCount => AssociatedCount + 1;
     public string Status => Component.Warnings.Count == 0 ? "OK" : "À contrôler";
@@ -48,7 +62,7 @@ public sealed class ComponentRowViewModel : INotifyPropertyChanged
                 var bitmap = new BitmapImage();
                 bitmap.BeginInit();
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.DecodePixelWidth = 96;
+                bitmap.DecodePixelWidth = 128;
                 bitmap.UriSource = new Uri(path, UriKind.Absolute);
                 bitmap.EndInit();
                 bitmap.Freeze();

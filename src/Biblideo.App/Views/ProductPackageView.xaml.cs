@@ -16,7 +16,6 @@ namespace Biblideo.App.Views;
 
 public partial class ProductPackageView : UserControl
 {
-    private const int MaxMosaicItems = 750;
     private readonly AppSettings _settings;
     private readonly LibraryScanner _scanner = new();
     private readonly ProductPackageSimulationService _simulationService = new();
@@ -269,11 +268,6 @@ public partial class ProductPackageView : UserControl
         }
 
         var visible = _rowsView.Cast<ComponentRowViewModel>().ToArray();
-        if (_isMosaicView && visible.Length > MaxMosaicItems)
-        {
-            ApplyComponentView(false);
-            SelectionStatusText.Text = $"Affichage liste réactivé : la mosaïque est limitée à {MaxMosaicItems:N0} composants visibles pour garder une navigation fluide.";
-        }
         ActiveLibraryTitle.Text = _activeLibrary ?? "Toutes les bibliothèques";
         VisibleCountText.Text = $"{visible.Length:N0} composant(s) visible(s)" +
                                 (_activeFamily is null ? string.Empty : $" · {_activeFamily}") +
@@ -343,19 +337,7 @@ public partial class ProductPackageView : UserControl
     private void ListViewButton_Click(object sender, RoutedEventArgs e) => ApplyComponentView(false);
 
     private void MosaicViewButton_Click(object sender, RoutedEventArgs e)
-    {
-        var visibleCount = _rowsView?.Cast<ComponentRowViewModel>().Count() ?? 0;
-        if (visibleCount > MaxMosaicItems)
-        {
-            MessageBox.Show(
-                $"La mosaïque est limitée à {MaxMosaicItems:N0} composants visibles pour garantir une navigation fluide.\n\nChoisis une bibliothèque, une famille ou utilise la recherche pour réduire la liste.",
-                "Affichage mosaïque",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-        ApplyComponentView(true);
-    }
+        => ApplyComponentView(true);
 
     private void ApplyComponentView(bool mosaic)
     {
@@ -363,7 +345,8 @@ public partial class ProductPackageView : UserControl
         ComponentsList.ItemTemplate = (DataTemplate)FindResource(mosaic ? "ComponentMosaicTemplate" : "ComponentListTemplate");
         ComponentsList.ItemContainerStyle = (Style)FindResource(mosaic ? "ComponentMosaicItemStyle" : "ComponentListItemStyle");
         ComponentsList.ItemsPanel = (ItemsPanelTemplate)FindResource(mosaic ? "ComponentMosaicItemsPanel" : "ComponentListItemsPanel");
-        ScrollViewer.SetCanContentScroll(ComponentsList, !mosaic);
+        ScrollViewer.SetCanContentScroll(ComponentsList, true);
+        ScrollViewer.SetHorizontalScrollBarVisibility(ComponentsList, ScrollBarVisibility.Disabled);
 
         var active = (Brush)FindResource("AccentDarkBrush");
         var inactive = (Brush)FindResource("SurfaceAltBrush");
@@ -513,6 +496,7 @@ public partial class ProductPackageView : UserControl
         VerificationFileCount.Text = plan.Files.Count.ToString("N0");
         VerificationLibraryCount.Text = selected.Select(row => row.Library).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString("N0");
         VerificationWarningCount.Text = (plan.Warnings.Count + plan.BlockingErrors.Count).ToString("N0");
+        VerificationTargetPathText.Text = Path.Combine(plan.TargetRoot, plan.OperationName);
         VerificationStatusText.Text = plan.BlockingErrors.Count > 0
             ? $"{plan.BlockingErrors.Count:N0} erreur(s) bloquante(s) à corriger."
             : plan.Warnings.Count > 0
@@ -537,7 +521,8 @@ public partial class ProductPackageView : UserControl
             {
                 Name = "Structure et documents du modèle",
                 Detail = $"{modelFiles.Length:N0} fichier(s) repris du modèle {_selectedVariant}",
-                Glyph = "◆"
+                Glyph = "◆",
+                Badge = "MODÈLE"
             };
             foreach (var file in modelFiles) AddPathToTree(modelRoot, file.RelativeDestination, file.Reason);
             roots.Add(modelRoot);
@@ -552,7 +537,9 @@ public partial class ProductPackageView : UserControl
             {
                 Name = libraryGroup.Key,
                 Detail = $"{libraryGroup.Count():N0} composant(s)",
-                Glyph = "▣"
+                Glyph = "▣",
+                Badge = "BIBLIOTHÈQUE",
+                IsExpanded = true
             };
 
             foreach (var row in libraryGroup
@@ -565,6 +552,7 @@ public partial class ProductPackageView : UserControl
                     Name = $"{row.Type} · {row.Name}",
                     Detail = $"{row.Family} · {row.FileCount:N0} fichier(s)",
                     Glyph = "▦",
+                    Badge = "COMPOSANT",
                     Component = row
                 };
                 var componentSources = new[] { row.Component.TopFilePath }.Concat(row.Component.AssociatedFiles);
@@ -576,7 +564,8 @@ public partial class ProductPackageView : UserControl
                     {
                         Name = Path.GetFileName(source),
                         Detail = planned?.RelativeDestination ?? Path.Combine("Bibliotheque", Path.GetRelativePath(_scanResult!.SourceRoot, source)),
-                        Glyph = "•"
+                        Glyph = "•",
+                        Badge = GetFileBadge(source)
                     });
                 }
                 libraryRoot.Children.Add(componentNode);
@@ -593,7 +582,8 @@ public partial class ProductPackageView : UserControl
                 {
                     Name = "Icônes automatiques",
                     Detail = $"{automaticFiles.Length:N0} fichier(s) icn ajouté(s) automatiquement",
-                    Glyph = "◇"
+                    Glyph = "◇",
+                    Badge = "ICÔNES"
                 };
                 foreach (var file in automaticFiles)
                 {
@@ -601,7 +591,8 @@ public partial class ProductPackageView : UserControl
                     {
                         Name = Path.GetFileName(file.RelativeDestination),
                         Detail = file.RelativeDestination,
-                        Glyph = "•"
+                        Glyph = "•",
+                        Badge = "ICN"
                     });
                 }
                 libraryRoot.Children.Add(automaticNode);
@@ -626,12 +617,20 @@ public partial class ProductPackageView : UserControl
                 {
                     Name = segments[index],
                     Detail = isFile ? detail : string.Empty,
-                    Glyph = isFile ? "•" : "□"
+                    Glyph = isFile ? "•" : "□",
+                    Badge = isFile ? GetFileBadge(segments[index]) : "DOSSIER"
                 };
                 current.Children.Add(existing);
             }
             current = existing;
         }
+    }
+
+    private static string GetFileBadge(string path)
+    {
+        if (path.EndsWith(".top.png", StringComparison.OrdinalIgnoreCase)) return "PNG";
+        var extension = Path.GetExtension(path).TrimStart('.');
+        return string.IsNullOrWhiteSpace(extension) ? "FICHIER" : extension.ToUpperInvariant();
     }
 
     private void RemoveVerificationComponentButton_Click(object sender, RoutedEventArgs e)
