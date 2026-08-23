@@ -1,0 +1,36 @@
+name: Publication ponctuelle Biblidéo 1.6.0
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/publish-v1.6.0.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compiler et tester
+        run: |
+          dotnet restore Biblideo.sln
+          dotnet build Biblideo.sln --configuration Release --no-restore
+          dotnet run --project tests/Biblideo.Core.SmokeTests/Biblideo.Core.SmokeTests.csproj --configuration Release --no-build
+
+      - name: Produire l'application autonome
+        run: dotnet publish src/Biblideo.App/Biblideo.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -p:Version=1.6.0 --output publish
+
+      - name: Publier la release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: gh release create "v1.6.0" "publish/Biblideo.exe" --title "Biblidéo 1.6.0" --notes "Cockpit opérationnel, fiches latérales Clients et Licences, corbeille récupérable des mails, infobulles sombres et améliorations ergonomiques."
