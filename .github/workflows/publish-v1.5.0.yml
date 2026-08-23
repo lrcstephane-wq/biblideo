@@ -1,0 +1,36 @@
+name: Publication ponctuelle v1.5.0
+
+on:
+  push:
+    branches: ["publish/v1.5.0"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compiler et tester
+        run: |
+          dotnet restore Biblideo.sln
+          dotnet build Biblideo.sln --configuration Release --no-restore
+          dotnet run --project tests/Biblideo.Core.SmokeTests/Biblideo.Core.SmokeTests.csproj --configuration Release --no-build
+
+      - name: Produire Biblideo.exe
+        run: dotnet publish src/Biblideo.App/Biblideo.App.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -p:Version=1.5.0 --output publish
+
+      - name: Créer la Release officielle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release create "v1.5.0" "publish/Biblideo.exe" --target "${{ github.sha }}" --title "Biblidéo 1.5.0" --notes "Module Licences : lecture des messages Outlook .msg, rapprochement avec les clients, distribution contrôlée et suivi des échéances. Le module Clients gagne ses améliorations ergonomiques et chaque poste peut désormais utiliser ses propres chemins d’accès tout en partageant les règles métier."
