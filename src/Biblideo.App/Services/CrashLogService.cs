@@ -31,9 +31,9 @@ public static class CrashLogService
                         $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {context}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 80)}{Environment.NewLine}");
                     return path;
                 }
-                catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+                catch (Exception writeError) when (writeError is UnauthorizedAccessException or IOException)
                 {
-                    lastError = exception;
+                    lastError = writeError;
                 }
             }
 
