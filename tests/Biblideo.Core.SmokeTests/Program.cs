@@ -51,6 +51,36 @@ try
     Check(scan.Components[0].AssociatedFiles.Count == 2, "Le PNG et le CAT associés doivent être détectés.");
     Check(scan.IgnoredBakCount == 1 && scan.IgnoredCfgCount == 1, "Les fichiers .bak et .cfg doivent être ignorés.");
     Check(scan.ExtensionlessCount == 1 && scan.Warnings.Count > 0, "Un fichier sans extension doit être signalé sans bloquer l’analyse.");
+
+    var archivesRoot = Path.Combine(testRoot, "archives");
+    var modelRoot = Path.Combine(archivesRoot, "000_Dossier_Produits_(SC)");
+    var modelLibraryFolder = Path.Combine(modelRoot, "Bibliotheque", "_Ideo_Base", "Coulissant");
+    Directory.CreateDirectory(modelLibraryFolder);
+    File.WriteAllText(Path.Combine(modelLibraryFolder, "icn_Coulissant.bmp"), "icone modele");
+    File.WriteAllText(Path.Combine(modelRoot, "---_Contenu_du_Pack.txt"), "document modele");
+    File.WriteAllText(Path.Combine(modelRoot, "Guide_Installation_Biblideo.pdf"), "guide modele");
+
+    var simulationSettings = new AppSettings
+    {
+        ProductArchivesPath = archivesRoot,
+        ProductStagingPath = Path.Combine(testRoot, "staging")
+    };
+    var plan = new ProductPackageSimulationService().BuildPlan(
+        scan,
+        scan.Components,
+        simulationSettings,
+        LibraryVariant.SC,
+        productName);
+    Check(plan.Files.Any(file => file.RelativeDestination == Path.Combine("Bibliotheque", "_Ideo_Utilisateur", "Caisson", Path.GetFileName(topPath))),
+        "Le .top doit conserver l’architecture relative de la bibliothèque source.");
+    Check(plan.Files.Any(file => file.RelativeDestination == Path.Combine("Bibliotheque", "_Ideo_Utilisateur", "Caisson", Path.GetFileName(topPath) + ".png")),
+        "Le PNG associé doit être placé à côté du .top.");
+    Check(plan.Files.Any(file => file.RelativeDestination == "001_Contenu_du_Pack.txt"),
+        "Le compteur --- du modèle doit être remplacé dans le plan.");
+    Check(plan.Files.Any(file => file.RelativeDestination == "Guide_Installation_Biblideo.pdf"),
+        "Les documents fixes du modèle doivent être repris.");
+    Check(plan.Directories.Any(directory => directory.RelativeDestination == Path.Combine("Bibliotheque", "_Ideo_Utilisateur", "Caisson")),
+        "Tous les dossiers parents des composants doivent être planifiés.");
 }
 finally
 {

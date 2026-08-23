@@ -12,18 +12,25 @@ Les services de la V0 n'exposent aucune méthode de copie, déplacement, suppres
 4. Sélection native d'un ou plusieurs `.top` avec `Ctrl` ou `Maj`, dans plusieurs emplacements.
 5. Conservation de la sélection dans un panier persistant pendant les changements de filtre ou de bibliothèque.
 6. Résolution des fichiers associés.
-7. Ajout virtuel des icônes de chaque bibliothèque concernée.
-8. Contrôles du modèle et du nom du package.
-9. Affichage du rapport HTML sans écriture métier.
+7. Reprise virtuelle de tout le contenu du dossier modèle SC ou EP, avec remplacement de `---` par le compteur du package.
+8. Ajout virtuel des composants et de leurs fichiers associés à leur emplacement relatif exact sous `Bibliotheque`.
+9. Ajout virtuel des icônes de chaque bibliothèque concernée.
+10. Contrôles du modèle et du nom du package.
+11. Affichage du rapport HTML sans écriture métier.
 
 ## Expérience de constitution
 
 - parcours guidé en quatre étapes, avec variante et nom du package toujours visibles ;
 - catalogue filtrable par bibliothèque, famille et type ;
-- lignes visuelles avec miniature TopSolid chargée uniquement lorsqu’elle devient visible ;
+- choix entre une liste compacte virtualisée et une mosaïque de cartes avec miniature TopSolid ;
 - sélection persistante multi-bibliothèques avec `Ctrl` et `Maj` ;
-- panier escamotable, annulation de la dernière sélection et aperçu des fichiers liés ;
-- synthèse exacte issue du plan de simulation avant l’ouverture du rapport HTML.
+- panier escamotable regroupé par bibliothèque, retrait unitaire, annulation de la dernière sélection et aperçu des fichiers liés ;
+- contrôle arborescent dépliable montrant le modèle, les bibliothèques, chaque composant et tous les fichiers `.top`, `.png`, `.bmp` et `.cat` prévus ;
+- retrait unitaire possible depuis l’étape de vérification ;
+- thème gris/bleu Idéo cohérent, y compris pour les ascenseurs verticaux et horizontaux ;
+- synthèse exacte issue du plan de simulation avant l’ouverture du rapport HTML, arborescence de destination comprise.
+
+Le passage en mosaïque est limité à 750 composants visibles. Au-delà, l’interface conserve la liste virtualisée et invite l’utilisateur à filtrer afin d’éviter le chargement simultané de milliers de miniatures.
 
 ## Configuration partagée
 
