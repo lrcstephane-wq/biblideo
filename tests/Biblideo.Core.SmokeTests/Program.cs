@@ -29,6 +29,12 @@ try
     Check(loaded.SourceScPath == settings.SourceScPath, "La configuration partagée doit être relue.");
     Check(loaded.SharedSettingsPath == sharedPath, "Le poste doit conserver l’emplacement de la configuration partagée.");
     Check(File.Exists(settingsService.CacheFilePath), "Une copie locale de la configuration doit être créée.");
+    Check(File.Exists(settingsService.MachinePathsFilePath), "Les chemins propres au poste doivent être mémorisés séparément.");
+
+    var otherPostSettings = new AppSettings { SourceScPath = @"Z:\BibliothequeSC" };
+    await new SettingsService(Path.Combine(testRoot, "other-local")).SaveAsync(otherPostSettings, sharedPath);
+    loaded = await settingsService.LoadAsync();
+    Check(loaded.SourceScPath == settings.SourceScPath, "Chaque poste doit conserver son propre chemin malgré une configuration partagée.");
 
     File.Delete(sharedPath);
     var cached = await settingsService.LoadAsync();
@@ -161,9 +167,9 @@ try
     Directory.CreateDirectory(clientsRoot);
     var clientManagement = new ClientManagementService();
     var clientRegistryService = new ClientRegistryService();
-    var clientDraft = new ClientDraft("Groupe Dubois", ClientLibraryVariant.EP, true, ["client@example.invalid"]);
+    var clientDraft = new ClientDraft("Client Démo", ClientLibraryVariant.EP, true, ["client@example.invalid"]);
     var clientPath = clientManagement.CreateClient(clientSettings, clientDraft);
-    Check(Path.GetFileName(clientPath) == "_Groupe_Dubois_(EP)", "Le dossier client doit respecter le format officiel.");
+    Check(Path.GetFileName(clientPath) == "_Client_Démo_(EP)", "Le dossier client doit respecter le format officiel.");
     Check(clientSettings.ClientFolderStructure.All(folder => Directory.Exists(Path.Combine(clientPath, folder))), "La structure client complète doit être créée.");
 
     var clientRegistry = new ClientRegistry();
@@ -186,7 +192,7 @@ try
 
     var statusChange = new ClientSubscriptionChange(scannedClient, false);
     var renamed = await clientManagement.ApplySubscriptionChangesAsync(clientSettings, [statusChange]);
-    Check(renamed.Count == 1 && Directory.Exists(Path.Combine(clientsRoot, "Groupe_Dubois_(EP)")), "La désactivation doit uniquement retirer le marqueur du dossier.");
+    Check(renamed.Count == 1 && Directory.Exists(Path.Combine(clientsRoot, "Client_Démo_(EP)")), "La désactivation doit uniquement retirer le marqueur du dossier.");
     Check(!Directory.Exists(clientPath), "L’ancien nom marqué ne doit plus exister après le renommage.");
 
     var unmarkedClient = new ClientRecord
@@ -194,8 +200,8 @@ try
         MetadataId = scannedClient.MetadataId,
         BaseName = scannedClient.BaseName,
         DisplayName = scannedClient.DisplayName,
-        FolderName = "Groupe_Dubois_(EP)",
-        FullPath = Path.Combine(clientsRoot, "Groupe_Dubois_(EP)"),
+        FolderName = "Client_Démo_(EP)",
+        FullPath = Path.Combine(clientsRoot, "Client_Démo_(EP)"),
         Variant = ClientLibraryVariant.EP,
         IsSubscribed = false,
         Emails = scannedClient.Emails
@@ -226,6 +232,36 @@ try
     Check(clientManagement.InspectFolder(clientSettings, emptyClient).IsEmpty, "Un client ne contenant que des dossiers doit être considéré comme vide.");
     clientManagement.PermanentlyDeleteEmptyClient(clientSettings, emptyClient);
     Check(!Directory.Exists(emptyPath), "La suppression définitive doit être possible uniquement pour un dossier client vide.");
+
+    var licenseService = new LicenseManagementService();
+    Check(LicenseManagementService.ParseExpiryDate("version=xx, module=2, key=abc, date=07/09/2026") == new DateTime(2026, 9, 7),
+        "La date de fin TopSolid doit être lue dans le corps du mail.");
+    var licenseClient = new ClientRecord
+    {
+        MetadataId = Guid.NewGuid(), BaseName = "Client_Licence", DisplayName = "Client Licence", FolderName = "_Client_Licence_(EP)",
+        FullPath = restoredPath, Variant = ClientLibraryVariant.EP, IsSubscribed = true,
+        Emails = ["licence@example.invalid"]
+    };
+    var incoming = new ParsedLicenseMessage
+    {
+        FullPath = Path.Combine(testRoot, "license.msg"), FileName = "license.msg",
+        Recipients = ["LICENCE@EXAMPLE.INVALID"], ExpiryDate = new DateTime(2026, 9, 7)
+    };
+    var match = licenseService.Match(incoming, [licenseClient]);
+    Check(match.MatchStatus == LicenseMatchStatus.Matched && match.MatchedClient?.MetadataId == licenseClient.MetadataId,
+        "Une adresse destinataire doit retrouver son client sans tenir compte de la casse.");
+    var summary = licenseService.Summarize(licenseClient,
+    [
+        incoming,
+        new ParsedLicenseMessage { FullPath = "old.msg", FileName = "old.msg", ExpiryDate = new DateTime(2026, 8, 1) }
+    ], new DateTime(2026, 8, 23), 10);
+    Check(summary.ExpiryDate == new DateTime(2026, 9, 7) && summary.State == ClientLicenseState.Valid,
+        "Le suivi doit conserver l’échéance la plus éloignée parmi plusieurs licences.");
+    File.WriteAllText(incoming.FullPath, "contenu msg de test");
+    var licenseDestination = Path.Combine(restoredPath, "01_Licence_Biblideo");
+    var move = licenseService.MoveVerified(incoming.FullPath, licenseDestination);
+    Check(move.Success && !File.Exists(incoming.FullPath) && move.DestinationPath is not null && File.Exists(move.DestinationPath),
+        "La distribution doit copier, contrôler puis retirer uniquement le mail de la boîte d’arrivée.");
 }
 finally
 {

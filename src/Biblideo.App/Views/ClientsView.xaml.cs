@@ -102,7 +102,7 @@ public partial class ClientsView : UserControl
         var variant = (VariantFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "All";
         var filtered = _allRows.Where(row =>
             (string.IsNullOrWhiteSpace(search) || row.DisplayName.Contains(search, StringComparison.CurrentCultureIgnoreCase) || row.FolderName.Contains(search, StringComparison.OrdinalIgnoreCase) || row.Client.Emails.Any(email => email.Contains(search, StringComparison.OrdinalIgnoreCase))) &&
-            (status == "All" || status == "Subscribed" && row.DesiredSubscribed || status == "Unsubscribed" && !row.DesiredSubscribed || status == "Structure" && !row.Client.StructureIsValid || status == "Email" && row.Client.Emails.Count == 0) &&
+            (status == "All" || status == "Subscribed" && row.DesiredSubscribed || status == "Unsubscribed" && !row.DesiredSubscribed || status == "Warning" && (!row.Client.StructureIsValid || row.Client.Emails.Count == 0) || status == "Structure" && !row.Client.StructureIsValid || status == "Email" && row.Client.Emails.Count == 0) &&
             (variant == "All" || row.Client.Variant.ToString() == variant));
         _visibleRows.Clear();
         foreach (var row in filtered) _visibleRows.Add(row);
@@ -112,12 +112,21 @@ public partial class ClientsView : UserControl
 
     private void UpdateSummary()
     {
-        var warningCount = _allRows.Count(row => !row.Client.StructureIsValid || row.Client.Emails.Count == 0) + _lastScan.IgnoredFolders.Count;
+        var warningCount = _allRows.Count(row => !row.Client.StructureIsValid || row.Client.Emails.Count == 0);
         TotalCountText.Text = _allRows.Count.ToString("N0");
         SubscribedCountText.Text = _allRows.Count(row => row.Client.IsSubscribed).ToString("N0");
         UnsubscribedCountText.Text = _allRows.Count(row => !row.Client.IsSubscribed).ToString("N0");
         WarningCountText.Text = warningCount.ToString("N0");
         ScanSummaryText.Text = $"{_allRows.Count:N0} client(s) reconnu(s) · {_lastScan.IgnoredFolders.Count:N0} dossier(s) hors périmètre";
+    }
+
+    private void ClientSummary_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string status }) return;
+        foreach (ComboBoxItem item in StatusFilter.Items)
+        {
+            if (item.Tag?.ToString() == status) { StatusFilter.SelectedItem = item; break; }
+        }
     }
 
     private void UpdatePendingBar()

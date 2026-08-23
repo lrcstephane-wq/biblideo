@@ -1,19 +1,19 @@
 <Window x:Class="Biblideo.App.Views.ClientRemovalWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="640" Height="500" WindowStartupLocation="CenterOwner"
+        Width="640" Height="570" WindowStartupLocation="CenterOwner"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False">
     <Border Background="{StaticResource SurfaceBrush}" BorderBrush="#506985" BorderThickness="1" CornerRadius="14">
         <Grid><Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="*"/><RowDefinition Height="70"/></Grid.RowDefinitions>
             <Border Background="{StaticResource HeaderBrush}" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown"><Grid Margin="20,0,12,0"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Image Source="/Biblideo;component/Assets/ideo-mark.png" Width="28" Height="28" Margin="0,0,11,0"/><TextBlock Text="Retirer un client" FontSize="18" FontWeight="SemiBold"/></StackPanel><Button Content="×" Width="34" Height="30" Padding="0" FontSize="18" Background="Transparent" BorderBrush="Transparent" HorizontalAlignment="Right" Click="Cancel_Click"/></Grid></Border>
-            <StackPanel Grid.Row="1" Margin="26,23">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="26,23">
                 <TextBlock x:Name="ClientText" FontSize="22" FontWeight="SemiBold"/>
                 <TextBlock x:Name="InventoryText" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,20"/>
                 <Border Style="{StaticResource ModernPanel}" Padding="17" Margin="0,0,0,12"><Grid><StackPanel><TextBlock Text="ARCHIVER · RECOMMANDÉ" Style="{StaticResource EyebrowText}"/><TextBlock Text="Le dossier sera déplacé dans 99_Z_Archives et restera récupérable." Margin="0,6,0,0" TextWrapping="Wrap"/></StackPanel><Button Content="Archiver" HorizontalAlignment="Right" VerticalAlignment="Center" MinWidth="120" Click="Archive_Click"/></Grid></Border>
                 <Border x:Name="DeletePanel" Style="{StaticResource ModernPanel}" Padding="17"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="145"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="SUPPRESSION DÉFINITIVE" Foreground="#EF7777" FontSize="10" FontWeight="Bold"/><TextBlock x:Name="DeleteExplanation" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/><TextBox x:Name="ConfirmationText" Margin="0,10,12,0" TextChanged="ConfirmationText_Changed"/></StackPanel><Button x:Name="DeleteButton" Grid.Column="1" Content="Supprimer" VerticalAlignment="Bottom" IsEnabled="False" Background="#71313A" BorderBrush="#A34B57" Click="Delete_Click"/></Grid></Border>
                 <TextBlock Text="Les bibliothèques sources ne sont jamais concernées. Elles peuvent dormir tranquilles." Foreground="{StaticResource SubtleBrush}" FontStyle="Italic" FontSize="11" Margin="0,14,0,0"/>
-            </StackPanel>
+            </StackPanel></ScrollViewer>
             <Border Grid.Row="2" Background="#141F2D" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,14,14" Padding="20,13"><Button Content="Annuler" HorizontalAlignment="Right" MinWidth="110" Click="Cancel_Click"/></Border>
         </Grid>
     </Border>

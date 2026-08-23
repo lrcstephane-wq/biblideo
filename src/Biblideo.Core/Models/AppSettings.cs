@@ -7,16 +7,22 @@ public sealed class AppSettings
     [JsonIgnore]
     public string SharedSettingsPath { get; set; } = SettingsDefaults.SharedSettingsPath;
 
-    public string SourceScPath { get; set; } = @"C:\Cloud\95_TSV6\Missler_622\BT_Group622\Bibliotheque";
-    public string SourceEpPath { get; set; } = @"C:\Cloud\95_TSV6\Missler_622\EP_Biblideo_Chant_Grp622\Bibliotheque";
-    public string ClientsRootPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo";
-    public string IdeoSolutionsRootPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions";
-    public string ProductStagingPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Composants_A_Deployers";
-    public string ProductArchivesPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Composants_Deja_Deployes_ARCHIVES";
-    public string ProductTrashPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Corbeille_Packages";
-    public string ReportsPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Rapports";
-    public string MonthlyPackagesRootPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions";
+    public string SourceScPath { get; set; } = string.Empty;
+    public string SourceEpPath { get; set; } = string.Empty;
+    public string ClientsRootPath { get; set; } = string.Empty;
+    public string IdeoSolutionsRootPath { get; set; } = string.Empty;
+    public string ProductStagingPath { get; set; } = string.Empty;
+    public string ProductArchivesPath { get; set; } = string.Empty;
+    public string ProductTrashPath { get; set; } = string.Empty;
+    public string ReportsPath { get; set; } = string.Empty;
+    public string MonthlyPackagesRootPath { get; set; } = string.Empty;
     public string SevenZipExecutablePath { get; set; } = @"C:\Program Files\7-Zip\7z.exe";
+    public string LicenseInboxPath { get; set; } = string.Empty;
+    public string LicenseIndexPath { get; set; } = string.Empty;
+    public string LicenseHistoryPath { get; set; } = string.Empty;
+    public string LicenseClientFolderName { get; set; } = "01_Licence_Biblideo";
+    public int LicenseRenewalWarningDays { get; set; } = 10;
+    public string LicensePlannerUrl { get; set; } = "https://planner.topsolid.com/User/Default.aspx";
 
     [JsonIgnore]
     public string ScModelPath => Path.Combine(ProductArchivesPath, "000_Dossier_Produits_(SC)");
@@ -29,10 +35,37 @@ public sealed class AppSettings
 
     public string GetModelPath(LibraryVariant variant) =>
         variant == LibraryVariant.SC ? ScModelPath : EpModelPath;
+
+    public string GetEffectiveLicenseInboxPath() => string.IsNullOrWhiteSpace(LicenseInboxPath)
+        ? CombineWhenConfigured(IdeoSolutionsRootPath, LicenseClientFolderName)
+        : LicenseInboxPath;
+
+    public string GetEffectiveLicenseIndexPath() => string.IsNullOrWhiteSpace(LicenseIndexPath)
+        ? Path.Combine(GetApplicationDataRoot(), "Data", "licenses-index.json")
+        : LicenseIndexPath;
+
+    public string GetEffectiveLicenseHistoryPath() => string.IsNullOrWhiteSpace(LicenseHistoryPath)
+        ? Path.Combine(GetApplicationDataRoot(), "Data", "licenses-history.jsonl")
+        : LicenseHistoryPath;
+
+    private string GetApplicationDataRoot()
+    {
+        var configDirectory = Path.GetDirectoryName(SharedSettingsPath);
+        return string.IsNullOrWhiteSpace(configDirectory)
+            ? SettingsDefaults.ApplicationDataRoot
+            : Directory.GetParent(configDirectory)?.FullName ?? configDirectory;
+    }
+
+    private static string CombineWhenConfigured(string root, string child) =>
+        string.IsNullOrWhiteSpace(root) ? string.Empty : Path.Combine(root, child);
 }
 
 public static class SettingsDefaults
 {
-    public const string ApplicationDataRoot = @"C:\Cloud\02_Idéo\99_Application\Biblideo";
-    public const string SharedSettingsPath = ApplicationDataRoot + @"\Config\biblideo.settings.json";
+    public static string ApplicationDataRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Ideo Solutions",
+        "Biblideo");
+
+    public static string SharedSettingsPath => Path.Combine(ApplicationDataRoot, "Config", "biblideo.settings.json");
 }

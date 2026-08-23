@@ -15,7 +15,7 @@ public sealed class ClientModuleSettings
         "90_Dev_Spe",
         "99_Partage_Client"
     ];
-    public List<string> IgnoredFolderNames { get; set; } = ["Idéo_Solutions", "Journaux_MAJ"];
+    public List<string> IgnoredFolderNames { get; set; } = [];
     public List<string> NotificationRecipients { get; set; } = [];
 }
 
