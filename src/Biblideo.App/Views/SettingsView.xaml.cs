@@ -52,6 +52,7 @@ public partial class SettingsView : UserControl
         ClientIgnoredFoldersText.Text = string.Join("; ", _clientSettings.IgnoredFolderNames);
         ClientRecipientsText.Text = string.Join("; ", _clientSettings.NotificationRecipients);
         LicenseInboxText.Text = _settings.GetEffectiveLicenseInboxPath();
+        LicenseTrashText.Text = _settings.GetEffectiveLicenseTrashPath();
         LicenseIndexText.Text = _settings.GetEffectiveLicenseIndexPath();
         LicenseHistoryText.Text = _settings.GetEffectiveLicenseHistoryPath();
         LicenseWarningDaysText.Text = _settings.LicenseRenewalWarningDays.ToString();
@@ -104,7 +105,7 @@ public partial class SettingsView : UserControl
 
     private void TestPathsButton_Click(object sender, RoutedEventArgs e)
     {
-        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text, ClientArchiveText.Text, LicenseInboxText.Text };
+        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text, ClientArchiveText.Text, LicenseInboxText.Text, LicenseTrashText.Text };
         var validFolders = folderPaths.Count(Directory.Exists);
         var sevenZipValid = File.Exists(SevenZipText.Text);
         var sharedDirectory = Path.GetDirectoryName(SharedSettingsText.Text.Trim());
@@ -131,6 +132,7 @@ public partial class SettingsView : UserControl
             MonthlyPackagesRootPath = IdeoRootText.Text.Trim(),
             SevenZipExecutablePath = SevenZipText.Text.Trim(),
             LicenseInboxPath = LicenseInboxText.Text.Trim(),
+            LicenseTrashPath = LicenseTrashText.Text.Trim(),
             LicenseIndexPath = LicenseIndexText.Text.Trim(),
             LicenseHistoryPath = LicenseHistoryText.Text.Trim(),
             LicenseClientFolderName = _settings.LicenseClientFolderName,

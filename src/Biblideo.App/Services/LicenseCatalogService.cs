@@ -29,7 +29,7 @@ public sealed class LicenseCatalogService
         if (pending.Count > 0)
             results.AddRange(await _reader.ReadManyAsync(pending));
 
-        index.Entries = results.Select(message =>
+        var refreshedEntries = results.Select(message =>
         {
             var info = new FileInfo(message.FullPath);
             return new LicenseIndexEntry
@@ -42,7 +42,13 @@ public sealed class LicenseCatalogService
                 ExpiryDate = message.ExpiryDate,
                 Error = message.Error
             };
-        }).ToList();
+        }).ToArray();
+        var requestedPaths = distinctPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        index.Entries = index.Entries
+            .Where(entry => !requestedPaths.Contains(entry.FullPath) && File.Exists(entry.FullPath))
+            .Concat(refreshedEntries)
+            .DistinctBy(entry => entry.FullPath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         await SaveAsync(indexPath, index, cancellationToken);
         return results.OrderBy(message => message.FileName, StringComparer.CurrentCultureIgnoreCase).ToArray();
     }
