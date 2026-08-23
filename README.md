@@ -44,6 +44,8 @@ Les sources TopSolid restent toujours en lecture seule. Les fonctions de pack me
 
 Le module Licences analyse les messages Outlook `.msg` déposés dans sa boîte d’arrivée, les rapproche des adresses du registre clients et présente les échéances. Une distribution ne retire le message source qu’après copie et contrôle d’intégrité dans le dossier du client ; les pièces jointes restent intégrées au message et ne sont pas extraites.
 
+La vue d’ensemble est un cockpit opérationnel : état des accès, indicateurs clients et licences, priorités cliquables, flux de production et activité récente. Les modules Clients et Licences proposent une fiche latérale détaillée sans quitter la liste. Un mail de licence peut être retiré de la boîte d’arrivée vers une corbeille réseau paramétrable et récupérable ; il n’est jamais supprimé directement.
+
 ## Architecture
 
 - `src/Biblideo.Core` : règles métier, analyse TopSolid, nommage et rapport.
