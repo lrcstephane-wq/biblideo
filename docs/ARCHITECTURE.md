@@ -16,6 +16,15 @@ Les services de la V0 n'exposent aucune méthode de copie, déplacement, suppres
 8. Contrôles du modèle et du nom du package.
 9. Affichage du rapport HTML sans écriture métier.
 
+## Expérience de constitution
+
+- parcours guidé en quatre étapes, avec variante et nom du package toujours visibles ;
+- catalogue filtrable par bibliothèque, famille et type ;
+- lignes visuelles avec miniature TopSolid chargée uniquement lorsqu’elle devient visible ;
+- sélection persistante multi-bibliothèques avec `Ctrl` et `Maj` ;
+- panier escamotable, annulation de la dernière sélection et aperçu des fichiers liés ;
+- synthèse exacte issue du plan de simulation avant l’ouverture du rapport HTML.
+
 ## Configuration partagée
 
 - fichier JSON réseau par défaut : `C:\Cloud\02_Idéo\99_Application\Biblideo\Config\biblideo.settings.json` ;

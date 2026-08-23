@@ -10,6 +10,8 @@ La V0 fonctionne en **simulation stricte** :
 - sélection persistante de plusieurs composants `.top` ;
 - sélection native avec `Ctrl` et `Maj`, conservée pendant la navigation entre bibliothèques ;
 - filtre actif par bibliothèque, famille ou type, avec panier récapitulatif ;
+- atelier guidé en quatre étapes : identification, sélection visuelle, vérification et simulation ;
+- miniatures chargées à la demande, compteurs par bibliothèque et annulation de la dernière sélection ;
 - association automatique des `.top.png` et `.cat` ;
 - intégration prévue des `.bmp` et `icn*` des bibliothèques sélectionnées ;
 - exclusion des `.bak` et `.cfg` ;
