@@ -6,6 +6,10 @@ namespace Biblideo.Core.Services;
 
 public sealed class HtmlReportService
 {
+    private const string ModernReportStyle = """
+        :root{color-scheme:dark;--bg:#0b1320;--panel:#162232;--panel2:#1d2c3e;--line:#344961;--text:#f3f7fc;--muted:#9fb0c4;--blue:#5797e3;--green:#58cf9f;--orange:#e2a65e;--red:#ee7d8e}*{box-sizing:border-box}html{scrollbar-color:#627993 #111b28;scrollbar-width:thin}::-webkit-scrollbar{width:13px;height:13px}::-webkit-scrollbar-track{background:#111b28}::-webkit-scrollbar-thumb{background:#627993;border:3px solid #111b28;border-radius:9px}body{margin:0;background:radial-gradient(circle at 85% 0,#153252 0,transparent 34%),var(--bg);color:var(--text);font:14px 'Segoe UI',Arial,sans-serif}main{max-width:1380px;margin:auto;padding:34px}.hero{background:linear-gradient(135deg,#173c69,#176254);border:1px solid #40789d;border-radius:20px;padding:30px;box-shadow:0 22px 55px #0006}.eyebrow{color:#8abcf5;text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:800}h1{margin:8px 0 5px;font-size:32px}.muted{color:var(--muted)}.quip{margin-top:17px;color:#b9d4ef;font-style:italic}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:20px 0}.card,.panel,details{background:linear-gradient(145deg,var(--panel),#121d2b);border:1px solid var(--line);border-radius:15px}.card{padding:18px}.value{font-size:25px;font-weight:750;margin-top:7px}.panel{padding:20px;margin-top:15px}details{margin-top:12px;overflow:hidden}summary{cursor:pointer;padding:16px 19px;font-size:16px;font-weight:700;background:var(--panel2);list-style:none}summary::-webkit-details-marker{display:none}summary:after{content:'＋';float:right;color:var(--blue)}details[open] summary:after{content:'−'}.detail-content{padding:5px 18px 17px}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:#25405f;color:#bcd9fa;font-size:11px;font-weight:700;margin:2px 5px 2px 0}.ok{color:var(--green)}.warn{color:var(--orange)}.danger{color:var(--red)}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;color:#8abcf5;padding:10px;border-bottom:1px solid var(--line)}td{padding:9px 10px;border-bottom:1px solid #26384d;vertical-align:top}code{color:#b9dcff;word-break:break-all}.notice{padding:14px 17px;border-left:4px solid var(--green);background:#123b3266;border-radius:9px;margin-top:16px}.notice.warn{border-left-color:var(--orange);background:#50351855;color:var(--text)}ul{line-height:1.6}@media(max-width:850px){main{padding:18px}.grid{grid-template-columns:1fr 1fr}}
+        """;
+
     public string BuildProductPackageReport(SimulationPlan plan)
     {
         var status = plan.BlockingErrors.Count == 0 ? "Simulation prête" : "Simulation bloquée";
@@ -80,6 +84,115 @@ public sealed class HtmlReportService
         builder.Append("</tbody></table></section></main></body></html>");
         return builder.ToString();
     }
+
+    public string BuildProductPackageModificationPreviewReport(ProductPackageModificationPlan plan)
+    {
+        var builder = BeginModernReport(
+            "Simulation de modification",
+            plan.ExistingPackage.Name,
+            $"Mode des fichiers conservés : {(plan.CopyMode == ExistingFileCopyMode.Overwrite ? "actualisation depuis la bibliothèque" : "conservation de la copie actuelle")}",
+            "Le package est encore intact. Pour l’instant, les fichiers font seulement semblant de déménager.");
+        builder.Append("<div class=\"notice warn\"><strong>Simulation uniquement :</strong> aucune copie, actualisation ou mise en corbeille n’a encore été effectuée.</div>")
+            .Append("<section class=\"grid\">")
+            .Append(ModernCard("Ajoutés", plan.AddedComponents.Count.ToString("N0"), "ok"))
+            .Append(ModernCard("Retirés", plan.RemovedComponents.Count.ToString("N0"), "danger"))
+            .Append(ModernCard("Conservés", plan.RetainedComponents.Count.ToString("N0"), ""))
+            .Append(ModernCard("Orphelins", plan.OrphanComponents.Count.ToString("N0"), "warn"))
+            .Append("</section>");
+        AppendChangeDetails(builder, "Contenu d’origine du package", plan.ExistingPackage.ComponentRelativeTopPaths, "", open: false);
+        AppendChangeDetails(builder, "Composants ajoutés", plan.AddedComponents, "ok", open: true);
+        AppendChangeDetails(builder, "Composants retirés", plan.RemovedComponents, "danger", open: true);
+        AppendChangeDetails(builder, "Composants conservés", plan.RetainedComponents, "", open: false);
+        AppendChangeDetails(builder, "Absents de la source", plan.OrphanComponents, "warn", open: plan.OrphanComponents.Count > 0);
+        AppendMessagesAsDetails(builder, "Avertissements", plan.Warnings, "warn");
+        AppendMessagesAsDetails(builder, "Erreurs bloquantes", plan.BlockingErrors, "danger");
+        AppendActionDetails(builder, plan.FileActions);
+        return EndModernReport(builder);
+    }
+
+    public string BuildProductPackageModificationExecutionReport(ProductPackageModificationPlan plan, ProductPackageModificationResult result)
+    {
+        var builder = BeginModernReport(
+            "Modification contrôlée terminée",
+            result.PackageName,
+            $"Exécutée le {result.CompletedAt:dd/MM/yyyy à HH:mm:ss}",
+            "Le package a changé. Les bibliothèques sources, elles, n’ont même pas vu passer le tournevis.");
+        builder.Append("<div class=\"notice\"><strong>Protection appliquée :</strong> toutes les écritures sont restées enfermées dans le package. Les anciennes versions remplacées ou retirées sont récupérables.</div>")
+            .Append("<section class=\"grid\">")
+            .Append(ModernCard("Ajoutés", plan.AddedComponents.Count.ToString("N0"), "ok"))
+            .Append(ModernCard("Retirés", plan.RemovedComponents.Count.ToString("N0"), "danger"))
+            .Append(ModernCard("Actualisés", result.Files.Count(file => file.Action == PackageFileActionKind.Overwrite).ToString("N0"), ""))
+            .Append(ModernCard("Préservés", plan.PreservedFileCount.ToString("N0"), ""))
+            .Append("</section><section class=\"panel\"><h2>Traçabilité</h2><p><b>Package :</b> <code>")
+            .Append(E(result.PackagePath)).Append("</code></p><p><b>Sauvegarde récupérable :</b> <code>")
+            .Append(E(string.IsNullOrEmpty(result.RecoveryPath) ? "Aucune sauvegarde nécessaire" : result.RecoveryPath))
+            .Append("</code></p><p><b>Manifeste :</b> <code>").Append(E(result.ManifestPath)).Append("</code></p></section>");
+        AppendChangeDetails(builder, "Contenu d’origine du package", plan.ExistingPackage.ComponentRelativeTopPaths, "", false);
+        AppendChangeDetails(builder, "Composants ajoutés", plan.AddedComponents, "ok", true);
+        AppendChangeDetails(builder, "Composants retirés", plan.RemovedComponents, "danger", true);
+        builder.Append("<details open><summary>Fichiers effectivement traités</summary><div class=\"detail-content\"><table><thead><tr><th>Action</th><th>Fichier</th><th>Taille</th><th>SHA-256</th></tr></thead><tbody>");
+        foreach (var file in result.Files)
+            builder.Append("<tr><td>").Append(ActionPill(file.Action)).Append("</td><td><code>").Append(E(file.RelativePath)).Append("</code></td><td>").Append(E(FormatBytes(file.Bytes))).Append("</td><td><code>").Append(E(file.Sha256 ?? "Déplacé vers la sauvegarde")) .Append("</code></td></tr>");
+        builder.Append("</tbody></table></div></details>");
+        return EndModernReport(builder);
+    }
+
+    public string BuildProductPackageTrashReport(ProductPackageTrashResult result)
+    {
+        var builder = BeginModernReport(
+            "Package placé en corbeille",
+            result.PackageName,
+            $"Opération effectuée le {result.MovedAt:dd/MM/yyyy à HH:mm:ss}",
+            "Il n’est pas supprimé. Il prend juste quelques vacances dans un dossier très surveillé.");
+        builder.Append("<div class=\"notice\"><strong>Suppression récupérable :</strong> le package complet a été déplacé, sans toucher aux bibliothèques sources.</div><section class=\"grid\">")
+            .Append(ModernCard("Composants", result.ComponentCount.ToString("N0"), ""))
+            .Append(ModernCard("Fichiers", result.FileCount.ToString("N0"), ""))
+            .Append(ModernCard("Source touchée", "0", "ok"))
+            .Append(ModernCard("Récupérable", "Oui", "ok"))
+            .Append("</section><section class=\"panel\"><h2>Emplacements</h2><p><b>Ancien :</b> <code>")
+            .Append(E(result.OriginalPath)).Append("</code></p><p><b>Corbeille :</b> <code>").Append(E(result.TrashPath)).Append("</code></p></section>");
+        return EndModernReport(builder);
+    }
+
+    private static StringBuilder BeginModernReport(string eyebrow, string title, string subtitle, string quip) =>
+        new StringBuilder("<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Rapport Biblidéo</title><style>")
+            .Append(ModernReportStyle).Append("</style></head><body><main><section class=\"hero\"><div class=\"eyebrow\">")
+            .Append(E(eyebrow)).Append("</div><h1>").Append(E(title)).Append("</h1><div class=\"muted\">").Append(E(subtitle))
+            .Append("</div><div class=\"quip\">« ").Append(E(quip)).Append(" »</div></section>");
+
+    private static string EndModernReport(StringBuilder builder) => builder.Append("</main></body></html>").ToString();
+    private static string ModernCard(string label, string value, string css) => $"<div class=\"card\"><div class=\"muted\">{E(label)}</div><div class=\"value {css}\">{E(value)}</div></div>";
+
+    private static void AppendChangeDetails(StringBuilder builder, string title, IReadOnlyList<string> items, string css, bool open)
+    {
+        builder.Append("<details").Append(open ? " open" : string.Empty).Append("><summary>").Append(E(title)).Append(" <span class=\"pill\">").Append(items.Count.ToString("N0")).Append("</span></summary><div class=\"detail-content ").Append(css).Append("\"><ul>");
+        if (items.Count == 0) builder.Append("<li>Aucun élément</li>");
+        foreach (var item in items) builder.Append("<li><code>").Append(E(item)).Append("</code></li>");
+        builder.Append("</ul></div></details>");
+    }
+
+    private static void AppendMessagesAsDetails(StringBuilder builder, string title, IReadOnlyList<string> items, string css)
+    {
+        if (items.Count == 0) return;
+        AppendChangeDetails(builder, title, items, css, true);
+    }
+
+    private static void AppendActionDetails(StringBuilder builder, IReadOnlyList<PackageFileAction> actions)
+    {
+        builder.Append("<details><summary>Plan détaillé des fichiers <span class=\"pill\">").Append(actions.Count.ToString("N0")).Append("</span></summary><div class=\"detail-content\"><table><thead><tr><th>Action</th><th>Destination</th><th>Motif</th></tr></thead><tbody>");
+        foreach (var action in actions.OrderBy(action => action.Kind).ThenBy(action => action.RelativePath, StringComparer.OrdinalIgnoreCase))
+            builder.Append("<tr><td>").Append(ActionPill(action.Kind)).Append("</td><td><code>").Append(E(action.RelativePath)).Append("</code></td><td>").Append(E(action.Reason)).Append("</td></tr>");
+        builder.Append("</tbody></table></div></details>");
+    }
+
+    private static string ActionPill(PackageFileActionKind action) => action switch
+    {
+        PackageFileActionKind.Add => "<span class=\"pill ok\">AJOUT</span>",
+        PackageFileActionKind.Overwrite => "<span class=\"pill\">ACTUALISATION</span>",
+        PackageFileActionKind.Remove => "<span class=\"pill danger\">RETRAIT</span>",
+        PackageFileActionKind.Preserve => "<span class=\"pill\">CONSERVÉ</span>",
+        _ => "<span class=\"pill warn\">NON GÉRÉ</span>"
+    };
 
     private static void AppendMessages(StringBuilder builder, string title, IReadOnlyList<string> messages, string cssClass)
     {

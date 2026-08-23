@@ -2,7 +2,7 @@
 
 ## Principe de sécurité
 
-Le flux produit un `SimulationPlan`, ensuite transformé en rapport HTML. Une exécution réelle n’est proposée qu’après cette simulation et passe par un service volontairement minimal : création de dossiers et copie avec `FileMode.CreateNew` uniquement. Il n’expose aucune opération d’écrasement, déplacement, renommage ou suppression.
+Le flux produit toujours un plan puis un rapport HTML avant toute exécution réelle. La création utilise exclusivement de nouveaux dossiers et des copies contrôlées. La modification agit uniquement dans le package produit explicitement ouvert : toute ancienne version remplacée ou retirée est d’abord sauvegardée dans une corbeille récupérable. Les bibliothèques sources ne sont jamais une destination d’écriture.
 
 ## Flux package produit
 
@@ -19,6 +19,21 @@ Le flux produit un `SimulationPlan`, ensuite transformé en rapport HTML. Une ex
 11. Affichage du rapport HTML sans écriture métier.
 12. Après confirmation explicite, création optionnelle du nouveau package produit.
 13. Vérification de chaque copie par taille et SHA-256, puis écriture du manifeste et du rapport d’exécution.
+
+## Modification et mise en corbeille d’un package produit
+
+1. Inventaire des enfants directs du dossier `000_Composants_A_Deployers` dont le nom respecte `NNN_Libellé_(SC|EP)`.
+2. Verrouillage de l’identité et de la variante du package choisi.
+3. Analyse en lecture seule de la bibliothèque SC ou EP correspondante.
+4. Présélection des `.top` déjà contenus dans le package, y compris signalement des composants absents de la source actuelle.
+5. Construction d’un différentiel : origine, ajouts, retraits, éléments conservés et actions fichier par fichier.
+6. Choix utilisateur entre actualisation depuis la source et préservation des copies existantes.
+7. Rapport HTML de simulation avant confirmation.
+8. Contrôle de l’empreinte du package pour refuser une modification concurrente.
+9. Sauvegarde récupérable des fichiers remplacés ou retirés, puis copie vérifiée des ajouts et actualisations.
+10. Manifeste de modification et rapport HTML final.
+
+La « suppression » d’un package complet est un déplacement vers la corbeille configurée. Aucun bouton de purge définitive n’est exposé.
 
 ## Expérience de constitution
 
@@ -60,7 +75,6 @@ La liste et la mosaïque utilisent toutes deux une virtualisation avec recyclage
 
 ## Extensions prévues
 
-- réouverture des packages produit grâce à un manifeste hors de `Bibliotheque` ;
 - création simulée puis réelle des packs mensuels SFX ;
 - gestion des clients et abonnements ;
 - déploiement avec précontrôle, transaction et rapport ;

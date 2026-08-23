@@ -100,6 +100,50 @@ try
         secondExecutionWasBlocked = true;
     }
     Check(secondExecutionWasBlocked, "Une seconde exécution doit être refusée afin de ne jamais écraser la destination.");
+
+    var secondTopPath = Path.Combine(componentRoot, "Corps_Meuble#V=Dossier_Interieur#I=00#R=NR.top");
+    File.WriteAllText(secondTopPath, "second-top");
+    File.WriteAllText(secondTopPath + ".png", "second-png");
+    var updatedScan = await new LibraryScanner().ScanAsync(libraryRoot);
+    var existingService = new ExistingProductPackageService();
+    var catalog = existingService.Scan(simulationSettings.ProductStagingPath);
+    Check(catalog.Packages.Count == 1, "Le package créé doit être retrouvé dans la liste des packages à déployer.");
+    var existingPackage = catalog.Packages.Single();
+    Check(existingPackage.ComponentCount == 1, "Le contenu .top du package doit être reconstruit.");
+
+    var modificationSettings = new AppSettings
+    {
+        ProductArchivesPath = archivesRoot,
+        ProductStagingPath = simulationSettings.ProductStagingPath,
+        ProductTrashPath = Path.Combine(testRoot, "trash")
+    };
+    var secondComponent = updatedScan.Components.Single(component => component.TopFilePath == secondTopPath);
+    var modificationService = new ProductPackageModificationService();
+    var modificationPlan = modificationService.BuildPlan(
+        existingPackage,
+        updatedScan,
+        [secondComponent],
+        modificationSettings,
+        ExistingFileCopyMode.Overwrite);
+    Check(modificationPlan.AddedComponents.Count == 1 && modificationPlan.RemovedComponents.Count == 1,
+        "La comparaison doit distinguer le composant ajouté et celui retiré.");
+    var modificationResult = await modificationService.ExecuteAsync(modificationPlan, modificationSettings);
+    Check(File.Exists(secondTopPath), "La modification ne doit jamais retirer le nouveau composant de la bibliothèque source.");
+    Check(File.Exists(topPath), "La modification ne doit jamais retirer l’ancien composant de la bibliothèque source.");
+    Check(File.Exists(Path.Combine(existingPackage.FullPath, "Bibliotheque", secondComponent.RelativeTopPath)),
+        "Le composant ajouté doit être copié à son emplacement relatif dans le package.");
+    Check(!File.Exists(copiedTop), "Le composant décoché doit quitter uniquement le package produit.");
+    Check(File.Exists(Path.Combine(modificationResult.RecoveryPath, "Bibliotheque", scan.Components[0].RelativeTopPath)),
+        "Le composant retiré doit rester récupérable dans la sauvegarde de modification.");
+
+    var refreshedPackage = existingService.Scan(simulationSettings.ProductStagingPath).Packages.Single();
+    var trashResult = await existingService.MoveToTrashAsync(
+        refreshedPackage,
+        simulationSettings.ProductStagingPath,
+        modificationSettings.ProductTrashPath);
+    Check(!Directory.Exists(refreshedPackage.FullPath) && Directory.Exists(trashResult.TrashPath),
+        "La suppression doit déplacer le package complet dans la corbeille récupérable.");
+    Check(File.Exists(secondTopPath), "La mise en corbeille du package ne doit pas toucher à la bibliothèque source.");
 }
 finally
 {

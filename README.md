@@ -21,7 +21,7 @@ L’application commence toujours par une **simulation stricte** :
 - aperçu du package `NNN_Libellé_(SC|EP)` ;
 - rapport HTML détaillant les opérations qui auraient été réalisées.
 
-Après validation de ce rapport, un premier mode de création réelle permet de constituer le package produit. Sa politique est volontairement limitée :
+Après validation de ce rapport, l’application permet de créer un package produit ou de rouvrir un package déjà présent dans `000_Composants_A_Deployers` :
 
 - création d’un nouveau dossier uniquement ;
 - copie des fichiers à leur emplacement relatif exact sous `Bibliotheque` ;
@@ -29,6 +29,16 @@ Après validation de ce rapport, un premier mode de création réelle permet de 
 - aucune suppression, aucun déplacement, aucun renommage et aucun écrasement ;
 - contrôle SHA-256 de chaque copie ;
 - manifeste `biblideo.manifest.json` et rapport HTML d’exécution.
+
+La modification d’un package existant est également contrôlée :
+
+- identité, variante et compteur du package verrouillés pendant l’édition ;
+- composants déjà présents automatiquement présélectionnés ;
+- comparaison explicite entre contenu d’origine, ajouts, retraits et éléments conservés ;
+- choix entre actualiser les fichiers conservés depuis la bibliothèque ou préserver leur copie actuelle ;
+- fichiers remplacés ou retirés sauvegardés dans une corbeille récupérable avant intervention ;
+- mise en corbeille d’un package complet au lieu d’une suppression définitive ;
+- contrôle anti-concurrence, refus des liens de fichiers et vérification SHA-256 des nouvelles copies.
 
 Les sources TopSolid restent toujours en lecture seule. Les fonctions de pack mensuel, de déploiement et de licence restent en simulation tant qu’elles n’ont pas reçu leurs propres protections.
 
@@ -49,6 +59,8 @@ Tous les chemins sont modifiables depuis **Paramètres**. La configuration méti
 Chaque poste ne conserve qu’un pointeur vers ce fichier et une copie locale de secours dans `%LOCALAPPDATA%\Ideo Solutions\Biblideo`. Le chemin du fichier partagé reste lui-même paramétrable. Une sauvegarde horodatée est créée avant chaque remplacement de la configuration existante.
 
 Le bouton de test vérifie l’accessibilité de la configuration, des dossiers métier et de 7-Zip sans modifier les données métier.
+
+Le dossier des packages à déployer et la corbeille des packages sont eux aussi paramétrables. Par défaut, la corbeille est située dans `C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Corbeille_Packages`.
 
 ## Mise à jour de l’application
 

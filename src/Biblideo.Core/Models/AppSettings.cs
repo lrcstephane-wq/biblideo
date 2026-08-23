@@ -13,6 +13,7 @@ public sealed class AppSettings
     public string IdeoSolutionsRootPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions";
     public string ProductStagingPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Composants_A_Deployers";
     public string ProductArchivesPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Composants_Deja_Deployes_ARCHIVES";
+    public string ProductTrashPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Corbeille_Packages";
     public string ReportsPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Rapports";
     public string MonthlyPackagesRootPath { get; set; } = @"C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions";
     public string SevenZipExecutablePath { get; set; } = @"C:\Program Files\7-Zip\7z.exe";

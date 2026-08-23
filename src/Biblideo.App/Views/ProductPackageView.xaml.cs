@@ -20,6 +20,8 @@ public partial class ProductPackageView : UserControl
     private readonly LibraryScanner _scanner = new();
     private readonly ProductPackageSimulationService _simulationService = new();
     private readonly ProductPackageExecutionService _executionService = new();
+    private readonly ExistingProductPackageService _existingPackageService = new();
+    private readonly ProductPackageModificationService _modificationService = new();
     private readonly HtmlReportService _reportService = new();
     private ObservableCollection<ComponentRowViewModel> _rows = [];
     private readonly ObservableCollection<LibraryFilterNode> _libraryNodes = [];
@@ -38,6 +40,8 @@ public partial class ProductPackageView : UserControl
     private string? _lastReportHtml;
     private string? _lastReportFileName;
     private bool _isMosaicView;
+    private ExistingProductPackage? _editingPackage;
+    private ProductPackageModificationPlan? _pendingModificationPlan;
 
     public ProductPackageView(AppSettings settings)
     {
@@ -63,8 +67,11 @@ public partial class ProductPackageView : UserControl
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         if (!TryGetPackageName(out _)) return;
+        await LoadLibraryAsync(SourcePathText.Text.Trim(), null);
+    }
 
-        var source = SourcePathText.Text.Trim();
+    private async Task LoadLibraryAsync(string source, ExistingProductPackage? package)
+    {
         if (!Directory.Exists(source))
         {
             IdeoDialog.Warning(
@@ -79,10 +86,27 @@ public partial class ProductPackageView : UserControl
         try
         {
             _scanResult = await _scanner.ScanAsync(source);
+            var components = _scanResult.Components.ToList();
+            if (package is not null)
+            {
+                var known = components.Select(component => component.RelativeTopPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var orphan in package.ComponentRelativeTopPaths.Where(path => !known.Contains(path)))
+                    components.Add(_existingPackageService.BuildPackageComponentDescriptor(package, orphan));
+            }
             ComponentsList.ItemsSource = null;
             _rowsView = null;
             _rows = new ObservableCollection<ComponentRowViewModel>(
-                _scanResult.Components.Select(component => new ComponentRowViewModel(component)));
+                components.Select(component => new ComponentRowViewModel(component)));
+
+            if (package is not null)
+            {
+                var original = package.ComponentRelativeTopPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var row in _rows.Where(row => original.Contains(row.Component.RelativeTopPath)))
+                {
+                    row.WasOriginallySelected = true;
+                    row.IsSelected = true;
+                }
+            }
 
             _rowsView = CollectionViewSource.GetDefaultView(_rows);
             _rowsView.Filter = FilterRow;
@@ -92,8 +116,12 @@ public partial class ProductPackageView : UserControl
             BuildFamilyFilters();
             RefreshFilteredView();
             RefreshSelectionSummary();
-            SelectionStatusText.Text = $"{_rows.Count:N0} composants analysés · Ctrl ou Maj pour sélectionner en masse · la sélection est conservée entre les bibliothèques.";
-            IdentityStatusText.Text = $"{_rows.Count:N0} composants trouvés · {_scanResult.IgnoredBakCount:N0} .bak et {_scanResult.IgnoredCfgCount:N0} .cfg ignorés.";
+            SelectionStatusText.Text = package is null
+                ? $"{_rows.Count:N0} composants analysés · Ctrl ou Maj pour sélectionner en masse · la sélection est conservée entre les bibliothèques."
+                : $"{package.ComponentCount:N0} composant(s) du package présélectionné(s) · ajoute ou retire librement avant la simulation.";
+            IdentityStatusText.Text = package is null
+                ? $"{_rows.Count:N0} composants trouvés · {_scanResult.IgnoredBakCount:N0} .bak et {_scanResult.IgnoredCfgCount:N0} .cfg ignorés."
+                : $"Package {package.Name} ouvert · identité verrouillée · bibliothèque source analysée en lecture seule.";
             ShowStep(2);
         }
         catch (Exception exception)
@@ -110,6 +138,121 @@ public partial class ProductPackageView : UserControl
             IsEnabled = true;
             IdentityScanProgress.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private async void ManageExistingPackagesButton_Click(object sender, RoutedEventArgs e)
+    {
+        IsEnabled = false;
+        try
+        {
+            var catalog = await _existingPackageService.ScanAsync(_settings.ProductStagingPath);
+            var window = new ExistingPackagesWindow(catalog) { Owner = Window.GetWindow(this) };
+            IsEnabled = true;
+            if (window.ShowDialog() != true || window.SelectedPackage is null) return;
+
+            if (window.SelectedAction == ExistingPackageAction.Trash)
+            {
+                await MovePackageToTrashAsync(window.SelectedPackage);
+                return;
+            }
+            await OpenPackageForEditingAsync(window.SelectedPackage);
+        }
+        catch (Exception exception)
+        {
+            var logPath = TryWriteScanLog(exception);
+            CrashLogService.TryOpen(logPath);
+            IdeoDialog.Error("Packages indisponibles", $"Impossible de lire les packages à déployer.\n\n{exception.Message}\n\nJournal : {logPath}");
+        }
+        finally
+        {
+            IsEnabled = true;
+        }
+    }
+
+    private async Task OpenPackageForEditingAsync(ExistingProductPackage package)
+    {
+        _editingPackage = package;
+        _pendingModificationPlan = null;
+        _selectedVariant = package.Variant;
+        _isInitializingIdentity = true;
+        CounterText.Text = package.Counter.ToString("000");
+        PackageLabelText.Text = package.Label;
+        SourcePathText.Text = _settings.GetSourcePath(package.Variant);
+        _nextCounter = package.Counter;
+        _isInitializingIdentity = false;
+        CounterText.IsReadOnly = true;
+        PackageLabelText.IsReadOnly = true;
+        VariantScButton.IsEnabled = false;
+        VariantEpButton.IsEnabled = false;
+        NewPackageButton.Visibility = Visibility.Visible;
+        ModificationModePanel.Visibility = Visibility.Visible;
+        PackageModeBadgeText.Text = "MODIFICATION · IDENTITÉ VERROUILLÉE";
+        CounterBadgeText.Text = $"COMPTEUR {package.Counter:000} · VERROUILLÉ";
+        RefreshPackagePreview();
+        RefreshVariantVisuals();
+        await LoadLibraryAsync(SourcePathText.Text.Trim(), package);
+    }
+
+    private async Task MovePackageToTrashAsync(ExistingProductPackage package)
+    {
+        if (!IdeoDialog.Confirm(
+                "Mettre ce package en corbeille ?",
+                $"{package.Name}\n\n{package.ComponentCount:N0} composant(s) et {package.FileCount:N0} fichier(s) quitteront le dossier des packages à déployer. Le package restera récupérable dans la corbeille configurée.",
+                "Ce n’est pas une disparition. Disons plutôt une retraite anticipée très bien documentée.",
+                "Mettre en corbeille")) return;
+
+        var result = await _existingPackageService.MoveToTrashAsync(package, _settings.ProductStagingPath, _settings.ProductTrashPath);
+        _lastReportHtml = _reportService.BuildProductPackageTrashReport(result);
+        _lastReportFileName = $"Rapport_Corbeille_{package.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+        await SaveReportBestEffortAsync(_lastReportHtml, _lastReportFileName);
+        RefreshCounter();
+        IdeoDialog.Info(
+            "Package placé en corbeille",
+            $"Le package a été déplacé ici :\n{result.TrashPath}\n\nLes bibliothèques sources n’ont pas été touchées.",
+            "Le package pourra revenir si quelqu’un prononce la formule magique : « on s’est trompé ».");
+        OpenLastReport();
+    }
+
+    private void NewPackageButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_editingPackage is not null && !IdeoDialog.Confirm(
+                "Quitter la modification ?",
+                "La sélection en cours sera abandonnée. Le package existant ne sera pas modifié.",
+                "Aucun fichier ne bougera. C’est le grand avantage d’abandonner avant le bouton final.",
+                "Revenir à un nouveau package")) return;
+        ResetToNewPackage();
+    }
+
+    private void ResetToNewPackage()
+    {
+        _editingPackage = null;
+        _pendingModificationPlan = null;
+        CounterText.IsReadOnly = false;
+        PackageLabelText.IsReadOnly = false;
+        VariantScButton.IsEnabled = true;
+        VariantEpButton.IsEnabled = true;
+        NewPackageButton.Visibility = Visibility.Collapsed;
+        ModificationModePanel.Visibility = Visibility.Collapsed;
+        PackageModeBadgeText.Text = "SIMULATION OBLIGATOIRE · COPIE PROTÉGÉE";
+        _isInitializingIdentity = true;
+        PackageLabelText.Text = string.Empty;
+        RefreshCounter();
+        SourcePathText.Text = _settings.GetSourcePath(_selectedVariant);
+        _isInitializingIdentity = false;
+        ResetScan();
+        RefreshPackagePreview();
+        RefreshVariantVisuals();
+    }
+
+    private ExistingFileCopyMode GetModificationCopyMode() =>
+        ModificationCopyModeCombo.SelectedItem is ComboBoxItem { Tag: string tag } && tag == "Preserve"
+            ? ExistingFileCopyMode.Preserve
+            : ExistingFileCopyMode.Overwrite;
+
+    private void ModificationCopyModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _pendingModificationPlan = null;
+        if (_editingPackage is not null && _currentStep == 3 && _scanResult is not null) RefreshVerification();
     }
 
     private void BuildLibraryList()
@@ -489,17 +632,37 @@ public partial class ProductPackageView : UserControl
         if (_scanResult is null || !TryGetPackageName(out var packageName)) return;
         var selected = _rows.Where(row => row.IsSelected).ToArray();
         var plan = _simulationService.BuildPlan(_scanResult, selected.Select(row => row.Component), _settings, _selectedVariant, packageName);
+        ProductPackageModificationPlan? modification = null;
+        if (_editingPackage is not null)
+        {
+            modification = _modificationService.BuildPlan(
+                _editingPackage,
+                _scanResult,
+                selected.Select(row => row.Component),
+                _settings,
+                GetModificationCopyMode());
+            _pendingModificationPlan = modification;
+            plan = modification.DesiredPlan;
+        }
 
         VerificationComponentCount.Text = selected.Length.ToString("N0");
-        VerificationFileCount.Text = plan.Files.Count.ToString("N0");
+        VerificationFileCount.Text = modification is null
+            ? plan.Files.Count.ToString("N0")
+            : modification.FileActions.Count(action => action.Kind is not PackageFileActionKind.Unmanaged).ToString("N0");
         VerificationLibraryCount.Text = selected.Select(row => row.Library).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString("N0");
-        VerificationWarningCount.Text = (plan.Warnings.Count + plan.BlockingErrors.Count).ToString("N0");
+        VerificationWarningCount.Text = modification is null
+            ? (plan.Warnings.Count + plan.BlockingErrors.Count).ToString("N0")
+            : (modification.Warnings.Count + modification.BlockingErrors.Count).ToString("N0");
         VerificationTargetPathText.Text = plan.TargetRoot;
-        VerificationStatusText.Text = plan.BlockingErrors.Count > 0
-            ? $"{plan.BlockingErrors.Count:N0} erreur(s) bloquante(s) à corriger."
-            : plan.Warnings.Count > 0
-                ? $"Prêt pour la simulation avec {plan.Warnings.Count:N0} avertissement(s) détaillé(s) dans le rapport."
-                : "Tous les contrôles sont au vert. Le package est prêt pour la simulation.";
+        VerificationStatusText.Text = modification is not null
+            ? modification.BlockingErrors.Count > 0
+                ? $"{modification.BlockingErrors.Count:N0} erreur(s) bloquante(s) à corriger."
+                : $"Modification prête à simuler · {modification.AddedComponents.Count:N0} ajout(s), {modification.RemovedComponents.Count:N0} retrait(s), {modification.RetainedComponents.Count:N0} conservé(s)."
+            : plan.BlockingErrors.Count > 0
+                ? $"{plan.BlockingErrors.Count:N0} erreur(s) bloquante(s) à corriger."
+                : plan.Warnings.Count > 0
+                    ? $"Prêt pour la simulation avec {plan.Warnings.Count:N0} avertissement(s) détaillé(s) dans le rapport."
+                    : "Tous les contrôles sont au vert. Le package est prêt pour la simulation.";
 
         VerificationTree.ItemsSource = BuildVerificationTree(selected, plan);
     }
@@ -558,10 +721,14 @@ public partial class ProductPackageView : UserControl
                 {
                     var planned = plan.Files.FirstOrDefault(file =>
                         file.SourcePath.Equals(source, StringComparison.OrdinalIgnoreCase));
+                    var fallbackDestination = _editingPackage is not null &&
+                                              Path.GetFullPath(source).StartsWith(Path.TrimEndingDirectorySeparator(_editingPackage.FullPath) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        ? Path.GetRelativePath(_editingPackage.FullPath, source)
+                        : Path.Combine("Bibliotheque", Path.GetRelativePath(_scanResult!.SourceRoot, source));
                     componentNode.Children.Add(new VerificationTreeNode
                     {
                         Name = Path.GetFileName(source),
-                        Detail = planned?.RelativeDestination ?? Path.Combine("Bibliotheque", Path.GetRelativePath(_scanResult!.SourceRoot, source)),
+                        Detail = planned?.RelativeDestination ?? fallbackDestination,
                         Glyph = "•",
                         Badge = GetFileBadge(source)
                     });
@@ -655,22 +822,58 @@ public partial class ProductPackageView : UserControl
     {
         if (_scanResult is null || !TryGetPackageName(out var packageName)) return;
         var selected = _rows.Where(row => row.IsSelected).Select(row => row.Component).ToArray();
+        if (_editingPackage is not null)
+        {
+            var modification = _modificationService.BuildPlan(
+                _editingPackage,
+                _scanResult,
+                selected,
+                _settings,
+                GetModificationCopyMode());
+            _pendingModificationPlan = modification;
+            _lastReportHtml = _reportService.BuildProductPackageModificationPreviewReport(modification);
+            _lastReportFileName = $"Simulation_Modification_{packageName}_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+            LastReportNameText.Text = _lastReportFileName;
+            ReportTitleText.Text = "Simulation de modification terminée";
+            ReportDescriptionText.Text = "Le rapport compare le package actuel et la sélection souhaitée. Aucune modification n’a encore été appliquée.";
+            RealCopyHeaderText.Text = "MODIFICATION RÉELLE CONTRÔLÉE";
+            RealCopyStatusText.Text = modification.BlockingErrors.Count > 0
+                ? "La modification reste verrouillée tant que les erreurs bloquantes ne sont pas corrigées."
+                : $"{modification.AddedComponents.Count:N0} ajout(s) · {modification.RemovedComponents.Count:N0} retrait(s) · {modification.OverwrittenFileCount:N0} fichier(s) à actualiser.";
+            CreateRealPackageButton.Content = "Appliquer la modification  →";
+            CreateRealPackageButton.IsEnabled = modification.BlockingErrors.Count == 0;
+            RealCopyProgress.Visibility = Visibility.Collapsed;
+            RealCopyProgress.Value = 0;
+            ShowStep(4);
+            OpenLastReport();
+            return;
+        }
+
         var plan = _simulationService.BuildPlan(_scanResult, selected, _settings, _selectedVariant, packageName);
         _lastReportHtml = _reportService.BuildProductPackageReport(plan);
         _lastReportFileName = $"Rapport_{packageName}.html";
         LastReportNameText.Text = _lastReportFileName;
+        ReportTitleText.Text = "Simulation terminée";
+        ReportDescriptionText.Text = "Le rapport est prêt. Aucun fichier métier n’a été créé, copié, déplacé ou supprimé.";
+        RealCopyHeaderText.Text = "COPIE RÉELLE CONTRÔLÉE";
         RealCopyStatusText.Text = plan.BlockingErrors.Count > 0
             ? "La copie réelle reste verrouillée tant que les erreurs bloquantes ne sont pas corrigées."
             : $"Prêt à créer {plan.Files.Count:N0} fichier(s) dans un nouveau dossier. Aucun écrasement autorisé.";
         RealCopyProgress.Visibility = Visibility.Collapsed;
         RealCopyProgress.Value = 0;
         CreateRealPackageButton.IsEnabled = plan.BlockingErrors.Count == 0;
+        CreateRealPackageButton.Content = "Créer le package  →";
         ShowStep(4);
         OpenLastReport();
     }
 
     private async void CreateRealPackageButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_editingPackage is not null)
+        {
+            await ExecutePackageModificationAsync();
+            return;
+        }
         if (_scanResult is null || !TryGetPackageName(out var packageName)) return;
 
         var selected = _rows.Where(row => row.IsSelected).Select(row => row.Component).ToArray();
@@ -755,6 +958,89 @@ public partial class ProductPackageView : UserControl
         finally
         {
             CreateRealPackageButton.IsEnabled = !completed;
+        }
+    }
+
+    private async Task ExecutePackageModificationAsync()
+    {
+        if (_pendingModificationPlan is null || _editingPackage is null)
+        {
+            IdeoDialog.Info("Nouvelle simulation requise", "Reviens à la vérification et génère une nouvelle simulation avant d’appliquer la modification.");
+            return;
+        }
+
+        var plan = _pendingModificationPlan;
+        if (plan.BlockingErrors.Count > 0)
+        {
+            IdeoDialog.Error("Modification verrouillée", string.Join(Environment.NewLine, plan.BlockingErrors));
+            return;
+        }
+        if (!IdeoDialog.Confirm(
+                "Appliquer la modification ?",
+                $"Package : {plan.ExistingPackage.Name}\n\n{plan.AddedComponents.Count:N0} composant(s) ajouté(s), {plan.RemovedComponents.Count:N0} retiré(s), {plan.RetainedComponents.Count:N0} conservé(s).\n\nLes fichiers remplacés ou retirés seront sauvegardés dans la corbeille. Les bibliothèques sources resteront en lecture seule.",
+                "Le bouton a relu le plan. Deux fois. Il est maintenant légèrement anxieux mais prêt.",
+                "Modifier le package")) return;
+
+        CreateRealPackageButton.IsEnabled = false;
+        RealCopyProgress.Visibility = Visibility.Visible;
+        RealCopyProgress.Value = 0;
+        RealCopyStatusText.Text = "Préparation de la modification contrôlée…";
+        var completed = false;
+        try
+        {
+            var progress = new Progress<PackageCopyProgress>(item =>
+            {
+                RealCopyProgress.Value = item.Percentage;
+                RealCopyStatusText.Text = $"{item.CompletedFiles:N0} / {item.TotalFiles:N0} · {item.RelativeDestination}";
+            });
+            var result = await _modificationService.ExecuteAsync(plan, _settings, progress);
+            _lastReportHtml = _reportService.BuildProductPackageModificationExecutionReport(plan, result);
+            _lastReportFileName = $"Rapport_Modification_{result.PackageName}_{DateTime.Now:yyyyMMdd_HHmmss}.html";
+            LastReportNameText.Text = _lastReportFileName;
+            await SaveReportBestEffortAsync(_lastReportHtml, _lastReportFileName);
+            RealCopyProgress.Value = 100;
+            RealCopyStatusText.Text = $"Modification terminée · {plan.AddedComponents.Count:N0} ajout(s), {plan.RemovedComponents.Count:N0} retrait(s), {plan.OverwrittenFileCount:N0} actualisation(s).";
+            ReportTitleText.Text = "Package modifié et contrôlé";
+            ReportDescriptionText.Text = "Le rapport final détaille l’état d’origine, les ajouts, les retraits, les actualisations et les fichiers laissés intacts.";
+            completed = true;
+            IdeoDialog.Info(
+                "Package modifié",
+                $"{result.PackageName} a été mis à jour.\n\nSauvegarde récupérable :\n{(string.IsNullOrEmpty(result.RecoveryPath) ? "Aucune sauvegarde nécessaire" : result.RecoveryPath)}",
+                "La bibliothèque source confirme qu’elle n’a absolument rien senti.");
+            OpenLastReport();
+        }
+        catch (Exception exception)
+        {
+            var logPath = TryWriteScanLog(exception);
+            CrashLogService.TryOpen(logPath);
+            RealCopyStatusText.Text = "Modification interrompue. Les sauvegardes déjà produites sont conservées pour diagnostic.";
+            IdeoDialog.Error(
+                "Modification interrompue",
+                $"{exception.Message}\n\nAucune suppression n’a été effectuée dans les bibliothèques sources.\n\nJournal : {logPath}",
+                "Rien n’est nettoyé en douce : les traces restent là pour nous raconter ce qui s’est passé.");
+        }
+        finally
+        {
+            CreateRealPackageButton.IsEnabled = !completed;
+        }
+    }
+
+    private async Task<string?> SaveReportBestEffortAsync(string html, string fileName)
+    {
+        try
+        {
+            Directory.CreateDirectory(_settings.ReportsPath);
+            var path = Path.Combine(_settings.ReportsPath, fileName);
+            await File.WriteAllTextAsync(path, html);
+            return path;
+        }
+        catch (Exception exception)
+        {
+            IdeoDialog.Warning(
+                "Rapport réseau indisponible",
+                $"L’opération est terminée, mais le rapport n’a pas pu être enregistré dans le dossier partagé. Il reste affichable dans l’application.\n\n{exception.Message}",
+                "Le rapport est prêt. Il boude seulement son dossier réseau.");
+            return null;
         }
     }
 

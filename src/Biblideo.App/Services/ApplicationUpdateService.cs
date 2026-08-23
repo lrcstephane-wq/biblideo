@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -34,6 +35,12 @@ public sealed class ApplicationUpdateService
     public async Task<string?> CheckAsync(CancellationToken cancellationToken = default)
     {
         using var response = await _httpClient.GetAsync(LatestReleaseApi, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            _availableAsset = null;
+            _availableVersion = null;
+            return null;
+        }
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         var release = await JsonSerializer.DeserializeAsync<GitHubRelease>(stream, cancellationToken: cancellationToken)

@@ -33,6 +33,7 @@ public partial class SettingsView : UserControl
         ProductStagingText.Text = _settings.ProductStagingPath;
         ProductArchivesText.Text = _settings.ProductArchivesPath;
         ReportsText.Text = _settings.ReportsPath;
+        ProductTrashText.Text = _settings.ProductTrashPath;
         SevenZipText.Text = _settings.SevenZipExecutablePath;
     }
 
@@ -66,7 +67,7 @@ public partial class SettingsView : UserControl
 
     private void TestPathsButton_Click(object sender, RoutedEventArgs e)
     {
-        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text };
+        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text };
         var validFolders = folderPaths.Count(Directory.Exists);
         var sevenZipValid = File.Exists(SevenZipText.Text);
         var sharedDirectory = Path.GetDirectoryName(SharedSettingsText.Text.Trim());
@@ -89,6 +90,7 @@ public partial class SettingsView : UserControl
             ProductStagingPath = ProductStagingText.Text.Trim(),
             ProductArchivesPath = ProductArchivesText.Text.Trim(),
             ReportsPath = ReportsText.Text.Trim(),
+            ProductTrashPath = ProductTrashText.Text.Trim(),
             MonthlyPackagesRootPath = IdeoRootText.Text.Trim(),
             SevenZipExecutablePath = SevenZipText.Text.Trim()
         };

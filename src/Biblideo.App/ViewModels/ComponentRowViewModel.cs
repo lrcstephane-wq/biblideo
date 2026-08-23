@@ -11,6 +11,7 @@ public sealed class ComponentRowViewModel : INotifyPropertyChanged
     private bool _isSelected;
     private bool _thumbnailLoaded;
     private BitmapImage? _thumbnail;
+    private bool _wasOriginallySelected;
 
     public ComponentDescriptor Component { get; }
     public bool IsSelected
@@ -47,7 +48,20 @@ public sealed class ComponentRowViewModel : INotifyPropertyChanged
     public int AssociatedCount => Component.AssociatedFiles.Count;
     public int FileCount => AssociatedCount + 1;
     public string Status => Component.Warnings.Count == 0 ? "OK" : "À contrôler";
-    public string SelectionBadge => IsSelected ? "Ajouté au package" : Status;
+    public bool WasOriginallySelected
+    {
+        get => _wasOriginallySelected;
+        set
+        {
+            if (_wasOriginallySelected == value) return;
+            _wasOriginallySelected = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectionBadge));
+        }
+    }
+    public string SelectionBadge => IsSelected
+        ? WasOriginallySelected ? "Présent dans le package" : "Ajouté au package"
+        : WasOriginallySelected ? "Retiré du package" : Status;
     public BitmapImage? Thumbnail
     {
         get

@@ -14,7 +14,7 @@
                 <Grid x:Name="SettingsGrid">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/><ColumnDefinition Width="95"/></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <TextBlock Text="Configuration partagée" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/><TextBox x:Name="SharedSettingsText" Grid.Column="1" Margin="8"/><Button Grid.Column="2" Content="Choisir" Margin="4" Click="BrowseSharedSettings_Click"/>
                     <TextBlock Grid.Row="1" Text="Source bibliothèque SC" VerticalAlignment="Center"/><TextBox x:Name="SourceScText" Grid.Row="1" Grid.Column="1" Margin="8"/><Button Grid.Row="1" Grid.Column="2" Content="Parcourir" Margin="4" Tag="SourceScText" Click="BrowseFolder_Click"/>
@@ -24,7 +24,8 @@
                     <TextBlock Grid.Row="5" Text="Packages produit à déployer" VerticalAlignment="Center"/><TextBox x:Name="ProductStagingText" Grid.Row="5" Grid.Column="1" Margin="8"/><Button Grid.Row="5" Grid.Column="2" Content="Parcourir" Margin="4" Tag="ProductStagingText" Click="BrowseFolder_Click"/>
                     <TextBlock Grid.Row="6" Text="Modèles et archives produit" VerticalAlignment="Center"/><TextBox x:Name="ProductArchivesText" Grid.Row="6" Grid.Column="1" Margin="8"/><Button Grid.Row="6" Grid.Column="2" Content="Parcourir" Margin="4" Tag="ProductArchivesText" Click="BrowseFolder_Click"/>
                     <TextBlock Grid.Row="7" Text="Rapports" VerticalAlignment="Center"/><TextBox x:Name="ReportsText" Grid.Row="7" Grid.Column="1" Margin="8"/><Button Grid.Row="7" Grid.Column="2" Content="Parcourir" Margin="4" Tag="ReportsText" Click="BrowseFolder_Click"/>
-                    <TextBlock Grid.Row="8" Text="7-Zip — 7z.exe" VerticalAlignment="Center"/><TextBox x:Name="SevenZipText" Grid.Row="8" Grid.Column="1" Margin="8"/><Button Grid.Row="8" Grid.Column="2" Content="Parcourir" Margin="4" Click="BrowseExecutable_Click"/>
+                    <TextBlock Grid.Row="8" Text="Corbeille des packages" VerticalAlignment="Center"/><TextBox x:Name="ProductTrashText" Grid.Row="8" Grid.Column="1" Margin="8"/><Button Grid.Row="8" Grid.Column="2" Content="Parcourir" Margin="4" Tag="ProductTrashText" Click="BrowseFolder_Click"/>
+                    <TextBlock Grid.Row="9" Text="7-Zip — 7z.exe" VerticalAlignment="Center"/><TextBox x:Name="SevenZipText" Grid.Row="9" Grid.Column="1" Margin="8"/><Button Grid.Row="9" Grid.Column="2" Content="Parcourir" Margin="4" Click="BrowseExecutable_Click"/>
                 </Grid>
             </Border>
             <Grid Margin="0,16,0,0">
