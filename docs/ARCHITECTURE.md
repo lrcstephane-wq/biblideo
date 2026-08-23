@@ -30,7 +30,7 @@ Les services de la V0 n'exposent aucune méthode de copie, déplacement, suppres
 - thème gris/bleu Idéo cohérent, y compris pour les ascenseurs verticaux et horizontaux ;
 - synthèse exacte issue du plan de simulation avant l’ouverture du rapport HTML, arborescence de destination comprise.
 
-Le passage en mosaïque est limité à 750 composants visibles. Au-delà, l’interface conserve la liste virtualisée et invite l’utilisateur à filtrer afin d’éviter le chargement simultané de milliers de miniatures.
+La liste et la mosaïque utilisent toutes deux une virtualisation avec recyclage : seules les lignes ou cartes visibles sont matérialisées. La mosaïque recalcule ses colonnes selon la largeur disponible, n’utilise jamais de défilement horizontal et reste exploitable avec plusieurs milliers de composants.
 
 ## Configuration partagée
 
@@ -42,10 +42,10 @@ Le passage en mosaïque est limité à 750 composants visibles. Au-delà, l’in
 
 ## Distribution
 
-- les compilations de branche produisent une archive Windows portable de test ;
-- les tags `vX.Y.Z` produisent une Release GitHub Velopack installable ;
-- une installation Velopack recherche les mises à jour du dépôt public au démarrage ;
-- téléchargement et redémarrage restent soumis à confirmation de l’utilisateur.
+- les compilations de branche produisent un `Biblideo.exe` Windows autonome de test ;
+- les tags `vX.Y.Z` produisent une Release GitHub contenant ce même exécutable unique ;
+- l’application compare sa version à la dernière Release publique, télécharge la nouvelle version et contrôle son empreinte SHA-256 lorsqu’elle est fournie ;
+- le remplacement est effectué après fermeture, puis Biblidéo redémarre automatiquement ; téléchargement et redémarrage restent soumis à confirmation.
 
 ## Règles d'association
 

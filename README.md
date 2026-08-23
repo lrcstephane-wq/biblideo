@@ -12,6 +12,7 @@ La V0 fonctionne en **simulation stricte** :
 - filtre actif par bibliothèque, famille ou type, avec panier récapitulatif ;
 - atelier guidé en quatre étapes : identification, sélection visuelle, vérification et simulation ;
 - miniatures chargées à la demande, compteurs par bibliothèque et annulation de la dernière sélection ;
+- vues ligne enrichie et mosaïque responsive virtualisées pour plusieurs milliers de composants ;
 - association automatique des `.top.png` et `.cat` ;
 - intégration prévue des `.bmp` et `icn*` des bibliothèques sélectionnées ;
 - exclusion des `.bak` et `.cfg` ;
@@ -28,7 +29,7 @@ La V0 ne crée, ne copie, ne déplace, ne renomme, ne compresse et ne supprime a
 - `src/Biblideo.App` : interface WPF Windows.
 - `tests/Biblideo.Core.SmokeTests` : contrôles métier sans dépendance externe.
 - `.github/workflows/build-windows.yml` : compilation et génération automatique de l'application Windows autonome.
-- `.github/workflows/release-windows.yml` : création des installateurs et mises à jour à partir des tags de version.
+- `.github/workflows/release-windows.yml` : publication du fichier autonome mis à jour à partir des tags de version.
 
 ## Chemins
 
@@ -42,9 +43,9 @@ Le bouton de test vérifie l’accessibilité de la configuration, des dossiers 
 
 ## Mise à jour de l’application
 
-L’application vérifie au démarrage les versions publiées dans les Releases GitHub du dépôt public. Lorsqu’une version est disponible, un bouton apparaît dans la barre supérieure et demande confirmation avant téléchargement et redémarrage.
+L’application vérifie au démarrage les versions publiées dans les Releases GitHub du dépôt public. Le bouton de la barre supérieure indique si l’application est à jour ; lorsqu’une version est disponible, il demande confirmation avant téléchargement, contrôle d’intégrité, remplacement de `Biblideo.exe` et redémarrage.
 
-La publication d’un tag `vX.Y.Z` déclenche la création automatique de l’installateur et des packages différentiels Velopack. Ce mécanisme est actif pour les versions installées ; l’archive Windows portable générée par la compilation reste destinée aux essais.
+La publication d’un tag `vX.Y.Z` déclenche la création d’une Release contenant un seul `Biblideo.exe` autonome. Après l’installation manuelle initiale de cette version, les suivantes se remplacent directement depuis l’application, comme dans Idéo Launcher.
 
 ## Compiler localement
 
