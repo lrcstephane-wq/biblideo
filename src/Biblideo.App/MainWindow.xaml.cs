@@ -136,12 +136,15 @@ public partial class MainWindow : Window
                 PageTitle.Text = "Clients";
                 PageContent.Content = new ClientsView(ClientModuleContext.Create(_settings, _clientSettings));
                 break;
+            case "Licenses":
+                PageTitle.Text = "Licences";
+                PageContent.Content = new LicensesView(_settings, ClientModuleContext.Create(_settings, _clientSettings));
+                break;
             default:
                 PageTitle.Text = destination switch
                 {
                     "Monthly" => "Packs mensuels",
                     "Deployment" => "Déploiement",
-                    "Licenses" => "Licences",
                     _ => destination
                 };
                 PageContent.Content = new PlaceholderView(PageTitle.Text);

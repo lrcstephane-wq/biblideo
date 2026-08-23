@@ -1,0 +1,23 @@
+<Window x:Class="Biblideo.App.Views.LicenseAssignmentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="620" Height="430" WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False">
+    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="#506985" BorderThickness="1" CornerRadius="14">
+        <Grid><Grid.RowDefinitions><RowDefinition Height="62"/><RowDefinition Height="*"/><RowDefinition Height="72"/></Grid.RowDefinitions>
+            <Border Background="{StaticResource HeaderBrush}" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown"><Grid Margin="20,0,12,0"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Image Source="/Biblideo;component/Assets/ideo-mark.png" Width="28" Height="28" Margin="0,0,11,0"/><TextBlock Text="Identifier la licence" FontSize="18" FontWeight="SemiBold"/></StackPanel><Button Content="×" Width="34" Height="30" Padding="0" FontSize="18" Background="Transparent" BorderBrush="Transparent" HorizontalAlignment="Right" Click="Cancel_Click"/></Grid></Border>
+            <StackPanel Grid.Row="1" Margin="26,22">
+                <TextBlock x:Name="FileText" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="À quel client devons-nous confier ce précieux .msg ?" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,18"/>
+                <TextBlock Text="CLIENT" Style="{StaticResource EyebrowText}"/>
+                <ComboBox x:Name="ClientCombo" Margin="0,7,0,16" DisplayMemberPath="DisplayName" SelectionChanged="SelectionChanged"/>
+                <TextBlock Text="ADRESSE À MÉMORISER" Style="{StaticResource EyebrowText}"/>
+                <ComboBox x:Name="AddressCombo" Margin="0,7,0,12" SelectionChanged="SelectionChanged"/>
+                <CheckBox x:Name="SaveAddressCheck" Content="Ajouter cette adresse à la fiche du client" Foreground="{StaticResource TextBrush}" IsChecked="True"/>
+                <TextBlock x:Name="HintText" Foreground="{StaticResource SubtleBrush}" FontStyle="Italic" FontSize="11" Margin="0,14,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+            <Border Grid.Row="2" Background="#141F2D" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,14,14" Padding="20,14"><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="Annuler" MinWidth="105" Click="Cancel_Click" Margin="0,0,9,0"/><Button x:Name="ConfirmButton" Content="Associer" Style="{StaticResource PrimaryButton}" MinWidth="115" Click="Confirm_Click" IsEnabled="False"/></StackPanel></Border>
+        </Grid>
+    </Border>
+</Window>

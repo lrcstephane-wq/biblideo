@@ -51,9 +51,10 @@ La liste et la mosaïque utilisent toutes deux une virtualisation avec recyclage
 
 ## Configuration partagée
 
-- fichier JSON réseau par défaut : `C:\Cloud\02_Idéo\99_Application\Biblideo\Config\biblideo.settings.json` ;
+- fichier JSON local neutre au premier démarrage, puis emplacement réseau choisi depuis l’interface ;
 - emplacement paramétrable depuis l’interface ;
 - fichier local `bootstrap.json` contenant uniquement le chemin réseau choisi ;
+- fichiers locaux de correspondance des chemins, propres à chaque poste (dossier synchronisé, UNC ou lecteur réseau) ;
 - copie locale de secours utilisée en lecture seule si le partage est indisponible ;
 - écriture atomique et sauvegarde horodatée du fichier précédent.
 

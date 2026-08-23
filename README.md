@@ -40,7 +40,9 @@ La modification d’un package existant est également contrôlée :
 - mise en corbeille d’un package complet au lieu d’une suppression définitive ;
 - contrôle anti-concurrence, refus des liens de fichiers et vérification SHA-256 des nouvelles copies.
 
-Les sources TopSolid restent toujours en lecture seule. Les fonctions de pack mensuel, de déploiement et de licence restent en simulation tant qu’elles n’ont pas reçu leurs propres protections.
+Les sources TopSolid restent toujours en lecture seule. Les fonctions de pack mensuel et de déploiement restent en simulation tant qu’elles n’ont pas reçu leurs propres protections.
+
+Le module Licences analyse les messages Outlook `.msg` déposés dans sa boîte d’arrivée, les rapproche des adresses du registre clients et présente les échéances. Une distribution ne retire le message source qu’après copie et contrôle d’intégrité dans le dossier du client ; les pièces jointes restent intégrées au message et ne sont pas extraites.
 
 ## Architecture
 
@@ -52,15 +54,13 @@ Les sources TopSolid restent toujours en lecture seule. Les fonctions de pack me
 
 ## Chemins
 
-Tous les chemins sont modifiables depuis **Paramètres**. La configuration métier partagée est enregistrée par défaut dans :
+Tous les chemins métier sont modifiables depuis **Paramètres** et ne sont pas publiés dans le dépôt. Au premier démarrage, la configuration est conservée dans les données locales de l’utilisateur, puis celui-ci peut choisir un fichier partagé sur son réseau.
 
-`C:\Cloud\02_Idéo\99_Application\Biblideo\Config\biblideo.settings.json`
-
-Chaque poste ne conserve qu’un pointeur vers ce fichier et une copie locale de secours dans `%LOCALAPPDATA%\Ideo Solutions\Biblideo`. Le chemin du fichier partagé reste lui-même paramétrable. Une sauvegarde horodatée est créée avant chaque remplacement de la configuration existante.
+Chaque poste conserve un pointeur vers le fichier partagé choisi, une copie locale de secours et ses propres chemins d’accès. Un poste peut donc utiliser un dossier synchronisé tandis qu’un autre accède aux mêmes données par un lecteur réseau. Les règles métier restent communes et une sauvegarde horodatée est créée avant chaque remplacement de la configuration partagée.
 
 Le bouton de test vérifie l’accessibilité de la configuration, des dossiers métier et de 7-Zip sans modifier les données métier.
 
-Le dossier des packages à déployer et la corbeille des packages sont eux aussi paramétrables. Par défaut, la corbeille est située dans `C:\Cloud\20_Partage_Clients\Biblidéo\Idéo_Solutions\000_Corbeille_Packages`.
+Le dossier des packages à déployer et la corbeille des packages sont eux aussi entièrement paramétrables.
 
 ## Mise à jour de l’application
 

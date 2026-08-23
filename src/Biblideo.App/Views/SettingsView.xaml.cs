@@ -49,7 +49,13 @@ public partial class SettingsView : UserControl
         ClientHistoryText.Text = _clientSettings.HistoryPath;
         ClientMarkerText.Text = _clientSettings.SubscriptionMarker;
         ClientFoldersText.Text = string.Join("; ", _clientSettings.FolderStructure);
+        ClientIgnoredFoldersText.Text = string.Join("; ", _clientSettings.IgnoredFolderNames);
         ClientRecipientsText.Text = string.Join("; ", _clientSettings.NotificationRecipients);
+        LicenseInboxText.Text = _settings.GetEffectiveLicenseInboxPath();
+        LicenseIndexText.Text = _settings.GetEffectiveLicenseIndexPath();
+        LicenseHistoryText.Text = _settings.GetEffectiveLicenseHistoryPath();
+        LicenseWarningDaysText.Text = _settings.LicenseRenewalWarningDays.ToString();
+        LicensePlannerText.Text = _settings.LicensePlannerUrl;
     }
 
     private void BrowseSharedSettings_Click(object sender, RoutedEventArgs e)
@@ -98,7 +104,7 @@ public partial class SettingsView : UserControl
 
     private void TestPathsButton_Click(object sender, RoutedEventArgs e)
     {
-        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text, ClientArchiveText.Text };
+        var folderPaths = new[] { SourceScText.Text, SourceEpText.Text, ClientsRootText.Text, IdeoRootText.Text, ProductStagingText.Text, ProductArchivesText.Text, ReportsText.Text, ProductTrashText.Text, ClientArchiveText.Text, LicenseInboxText.Text };
         var validFolders = folderPaths.Count(Directory.Exists);
         var sevenZipValid = File.Exists(SevenZipText.Text);
         var sharedDirectory = Path.GetDirectoryName(SharedSettingsText.Text.Trim());
@@ -123,7 +129,13 @@ public partial class SettingsView : UserControl
             ReportsPath = ReportsText.Text.Trim(),
             ProductTrashPath = ProductTrashText.Text.Trim(),
             MonthlyPackagesRootPath = IdeoRootText.Text.Trim(),
-            SevenZipExecutablePath = SevenZipText.Text.Trim()
+            SevenZipExecutablePath = SevenZipText.Text.Trim(),
+            LicenseInboxPath = LicenseInboxText.Text.Trim(),
+            LicenseIndexPath = LicenseIndexText.Text.Trim(),
+            LicenseHistoryPath = LicenseHistoryText.Text.Trim(),
+            LicenseClientFolderName = _settings.LicenseClientFolderName,
+            LicenseRenewalWarningDays = int.TryParse(LicenseWarningDaysText.Text, out var warningDays) ? Math.Clamp(warningDays, 1, 90) : 10,
+            LicensePlannerUrl = LicensePlannerText.Text.Trim()
         };
         var stagedClientSettings = new ClientModuleSettings
         {
@@ -133,7 +145,7 @@ public partial class SettingsView : UserControl
             SubscriptionMarker = ClientMarkerText.Text.Trim(),
             BiblideoFolderName = _clientSettings.BiblideoFolderName,
             FolderStructure = ClientFoldersText.Text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            IgnoredFolderNames = _clientSettings.IgnoredFolderNames,
+            IgnoredFolderNames = ClientIgnoredFoldersText.Text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             NotificationRecipients = ClientRecipientsText.Text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
         };
         if (stagedClientSettings.FolderStructure.Count == 0)
@@ -156,7 +168,7 @@ public partial class SettingsView : UserControl
             await _settingsService.SaveAsync(stagedSettings, stagedSettings.SharedSettingsPath);
             await _clientSettingsService.SaveAsync(stagedSettings, stagedClientSettings);
             _saved(stagedSettings, stagedClientSettings);
-            TestResultText.Text = "Configuration partagée enregistrée · copie locale actualisée.";
+            TestResultText.Text = "Règles partagées enregistrées · chemins de ce poste actualisés.";
             TestResultText.Foreground = System.Windows.Media.Brushes.LightGreen;
         }
         catch (Exception exception)
