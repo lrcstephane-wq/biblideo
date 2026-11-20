@@ -34,13 +34,12 @@ public sealed class ApplicationUpdateService
 
     public async Task<string?> CheckAsync(CancellationToken cancellationToken = default)
     {
+        _availableAsset = null;
+        _availableVersion = null;
         using var response = await _httpClient.GetAsync(LatestReleaseApi, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            _availableAsset = null;
-            _availableVersion = null;
-            return null;
-        }
+            throw new InvalidOperationException(
+                "La version publiée est inaccessible. Le dépôt GitHub Biblidéo est privé et cette application ne s’y authentifie pas.");
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         var release = await JsonSerializer.DeserializeAsync<GitHubRelease>(stream, cancellationToken: cancellationToken)
@@ -51,11 +50,7 @@ public sealed class ApplicationUpdateService
             throw new InvalidOperationException($"La version publiée « {release.TagName} » est invalide.");
 
         if (latestVersion <= GetCurrentVersion())
-        {
-            _availableAsset = null;
-            _availableVersion = null;
             return null;
-        }
 
         _availableAsset = release.Assets.FirstOrDefault(asset =>
             asset.Name.Equals(AssetName, StringComparison.OrdinalIgnoreCase))

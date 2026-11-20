@@ -1,0 +1,44 @@
+# Audit technique Idéo Nexus
+
+Audit des sources Biblidéo à [8397c8b](https://github.com/lrcstephane-wq/biblideo/commit/8397c8b6c06f16e1d1f40166987cedd7c9ae2aa2) et des sources de licence Atlas à [ae70d12](https://github.com/lrcstephane-wq/Atlas/commit/ae70d12ab4b4953d5b41998181ecf457451428df). La qualification ci-dessous distingue les parcours implémentés dans le code des parcours essayés dans l’environnement de travail. Les sources réelles TopSolid et les espaces Nextcloud des clients sont hors du périmètre de vérification.
+
+## Biblidéo
+
+| Module | Constat dans le dépôt | Décision |
+| --- | --- | --- |
+| Bibliothèques et atelier SC/EP | Scan des composants, association des fichiers, filtrage, sélections persistantes, miniatures et vues virtualisées. Simulation avec rapport HTML. | Conserver les règles Core et l’atelier. Extraire progressivement la coordination du code-behind de 1 291 lignes. |
+| Création et reprise de packages | Création réelle par copies vérifiées SHA‑256, manifeste, contrôle des chemins et refus d’une destination déjà présente. Réouverture, différentiel et corbeille récupérable opérationnels dans le code. | Conserver. Tester les collisions, les échecs partiels et les modifications simultanées avant réutilisation dans un moteur de publication. |
+| Packs mensuels et déploiement | Les destinations de navigation instancient une page générique. Des règles de nommage et des chemins existent. Le dépôt ne contient aucun parcours exécutable de simulation mensuelle ou de déploiement client. | Construire leurs propres plans, validations et opérations. La documentation est plus avancée que les écrans sur ce point. |
+| Clients | Scanner de dossiers, registre JSON de métadonnées, liste et cartes, création, renommage, réparation, archivage/restauration. Une commande permet la suppression d’un dossier client vide. | Adapter à l’entreprise et à ses établissements. L’archivage Nexus sera logique. Lier les anciens dossiers par alias et dissocier l’abonnement des renommages. |
+| Abonnements | Le préfixe du dossier indique l’éligibilité Biblidéo. Modifier ce statut renomme aujourd’hui un dossier. L’historique correspond à des opérations techniques. | Reconstruire les états contractuels et les transitions datées. Importer le préfixe comme indication historique, sans en déduire automatiquement un prix ou une échéance. |
+| Licences Biblidéo | Lecture des messages Outlook `.msg`, rapprochement par adresses, suivi des échéances, affectation, copie vérifiée et corbeille. La pièce jointe reste dans le message. | Conserver le parcours et l’isoler comme fonction Biblidéo. Recetter Outlook et les possibilités de distribution sur copie. |
+| Paramètres | Configuration partagée JSON, sauvegarde lors du remplacement, cache et chemins par poste. L’utilisation d’une copie de configuration ne désactive pas les commandes d’écriture des modules. | Réutiliser le principe de racines locales. Implémenter un état hors ligne réellement en lecture seule, piloté par la disponibilité du service de référence. |
+| Tableau de bord et interface | Synthèse Biblidéo, échéances, priorités, accès et activité. Styles WPF globaux existants, ascenseurs horizontal et vertical, listes et cartes virtualisées. Les vues sont recréées lors des changements de page. | Réutiliser les contrôles éprouvés. Refaire la navigation métier et les états de chargement, puis introduire onglets contextuels et fenêtres secondaires. |
+| Contrats, partenaires, sécurité et revenus | Aucun modèle de contrats, lignes, suspensions, partenaires ou revenus. Aucun compte Nexus ni contrôle d’accès central. L’historique local peut mentionner l’utilisateur et la machine Windows. | Construire avec autorisation vérifiée côté service et événements transactionnels. L’identité Windows enregistrée dans l’ancien journal est indicative. |
+
+## Risques établis par lecture du code
+
+| Priorité | Risque | Traitement |
+| --- | --- | --- |
+| Haute | Le registre clients relit puis remplace un JSON complet. La permutation du fichier évite une écriture déchirée, sans empêcher deux personnes de se remplacer mutuellement. La génération d’un GUID au scan pour un dossier absent du registre dépend ensuite d’une sauvegarde. | Capturer les GUID déjà inscrits, détecter les doublons et traiter chaque conflit. Effectuer les futures écritures dans le stockage de référence avec contrôle de révision. |
+| Haute | Modification de package et changement de statut client touchent plusieurs fichiers ou dossiers. Le contrôle d’empreinte précède la prise du verrou du package. Une annulation peut laisser des modifications déjà appliquées. | Revalider après le verrou, conserver les contrôles existants, tester l’interruption et prévoir un journal permettant la reprise ou la restauration. |
+| Haute | Les dossiers clients sont utilisés comme identité et comme emplacement dans plusieurs parcours. Un renommage peut affecter une référence, le partage Nextcloud ou un deuxième poste. | Conserver des chemins relatifs et des alias. Migrer sans déplacement, sur copies et avec rapprochement manuel. |
+| Haute | Les journaux clients et licences écrivaient des objets JSON indentés, tandis que les écrans lisaient chaque ligne comme un objet. | Corrigé dans ce lot. Les événements anciens et les nouvelles entrées compactes sont relus sans réécriture des anciens journaux. Le test couvre un journal mixte. |
+| Haute | L’ancien outil assimile la présence d’un package dans le dossier à une version détectée. La présence locale ne prouve ni la fin de synchronisation ni la réception client. | Consigner dépôt vérifié et synchronisation inconnue séparément. |
+| Moyenne | L’index de licences enregistre des chemins absolus, reconstruit et remplace le fichier. Chaque poste peut avoir sa propre représentation. Avant ce lot, le tableau de bord pouvait le réécrire en simple consultation. | Réécriture supprimée sur Accueil. Traiter l’index futur comme un cache régénérable, séparé de l’historique faisant foi. |
+
+## Atlas et licences
+
+Le code valide localement le format `ATL1` et sa signature ECDSA/SHA‑256. La charge contient le client, l’identifiant de licence, la date ISO, l’identifiant de machine et des options. L’expiration est inclusive, avec comparaison à la date locale. L’option `creator` distingue l’offre Créateur. Le validateur accepte des licences historiques dépourvues de liaison au poste. Pour les nouvelles licences Nexus, la liaison machine devra être exigée avant émission.
+
+Le périmètre d’intégration repose sur le comportement de [AtlasLicenseService](https://github.com/lrcstephane-wq/Atlas/blob/ae70d12ab4b4953d5b41998181ecf457451428df/src/Atlas.Core/Services/AtlasLicenseService.cs) et de [MachineIdentityService](https://github.com/lrcstephane-wq/Atlas/blob/ae70d12ab4b4953d5b41998181ecf457451428df/src/Atlas.Core/Services/MachineIdentityService.cs). Le dossier ProgramData est celui du fichier licence. La signature privée appartient au dispositif Idéo et devra rester hors de Nexus WPF et des partages clients. Avant de choisir entre réutilisation du générateur Atlas existant et intégration de son émetteur dans un service interne, valider des échantillons signés avec une clé de test, les limites de date, le mauvais poste, le renouvellement et les deux offres. Le renouvellement et le transfert devront conserver le droit et son historique. Une ancienne licence déjà installée sur un poste hors ligne reste utilisable jusqu’à son expiration, selon le mécanisme actuel.
+
+## Mise à jour de Biblidéo
+
+Le workflow de branche compile, teste et publie un artefact Windows. Les tags `v*` déclenchent la création d’une Release. Le connecteur authentifié voit [v1.6.1](https://github.com/lrcstephane-wq/biblideo/releases/tag/v1.6.1) avec `Biblideo.exe`. L’appel direct sans authentification renvoie HTTP 404. L’application interprétait cette réponse comme aucune mise à jour, puis affichait « À jour ». Le premier lot affiche désormais une vérification impossible dans ce cas. L’accès au canal GitHub privé reste à résoudre.
+
+Le téléchargement exploitait l’URL de l’asset et vérifiait le SHA‑256 uniquement s’il était fourni. Le remplacement repose sur un script Windows avec copie en place et redémarrage. Il n’y a pas de sauvegarde de la version précédente ni de contrôle Authenticode dans l’updater. Avant d’utiliser ce flux pour Nexus, recommander un canal interne de binaires signés et contrôlés ou une distribution manuelle depuis un canal privé authentifié. La signature, le retour arrière et la gestion du canal font l’objet d’un choix à valider.
+
+## Tests
+
+La suite existante exécute sur des répertoires temporaires les contrôles TopSolid et SC/EP, les paramètres partagés, les packages et leurs copies, l’archivage/restauration client ainsi que le déplacement vérifié d’un fichier de licence. La suite n’ouvre ni WPF ni Outlook. Les vérifications du lot et la recette restante sont dans [design et recette](design-recette.md).

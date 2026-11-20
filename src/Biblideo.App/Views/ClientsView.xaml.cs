@@ -112,7 +112,7 @@ public partial class ClientsView : UserControl
     {
         if (!File.Exists(_settings.ClientHistoryPath)) return [];
         var entries = new List<ClientHistoryDisplay>();
-        foreach (var line in File.ReadLines(_settings.ClientHistoryPath).TakeLast(100).Reverse())
+        foreach (var line in OperationHistory.ReadEntries(_settings.ClientHistoryPath).TakeLast(100).Reverse())
         {
             try
             {

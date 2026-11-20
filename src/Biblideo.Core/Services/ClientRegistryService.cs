@@ -32,12 +32,6 @@ public sealed class ClientRegistryService
         File.Move(temporaryPath, path, true);
     }
 
-    public async Task AppendHistoryAsync(string path, ClientHistoryEntry entry, CancellationToken cancellationToken = default)
-    {
-        var directory = Path.GetDirectoryName(path)
-                        ?? throw new InvalidOperationException("Le chemin de l’historique clients est invalide.");
-        Directory.CreateDirectory(directory);
-        var line = JsonSerializer.Serialize(entry, JsonOptions) + Environment.NewLine;
-        await File.AppendAllTextAsync(path, line, cancellationToken);
-    }
+    public Task AppendHistoryAsync(string path, ClientHistoryEntry entry, CancellationToken cancellationToken = default) =>
+        OperationHistory.AppendAsync(path, entry, cancellationToken);
 }

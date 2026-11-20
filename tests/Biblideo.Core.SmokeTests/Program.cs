@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Biblideo.Core.Models;
 using Biblideo.Core.Services;
 
@@ -179,6 +180,21 @@ try
         FolderName = Path.GetFileName(clientPath),
         Emails = clientDraft.Emails.ToList()
     });
+    var historyPath = Path.Combine(testRoot, "history", "clients.jsonl");
+    Directory.CreateDirectory(Path.GetDirectoryName(historyPath)!);
+    var oldEvent = new ClientHistoryEntry { Action = "create", ClientName = "Client Démo" };
+    var oldOptions = new JsonSerializerOptions { WriteIndented = true };
+    await File.WriteAllTextAsync(historyPath, JsonSerializer.Serialize(oldEvent, oldOptions) + Environment.NewLine);
+
+    var newEvent = new ClientHistoryEntry { Action = "edit", ClientName = "Client Démo", Details = "Texte\nmultiligne" };
+    await clientRegistryService.AppendHistoryAsync(historyPath, newEvent);
+    var history = OperationHistory.ReadEntries(historyPath)
+        .Select(entry => JsonSerializer.Deserialize<ClientHistoryEntry>(entry))
+        .ToArray();
+    Check(history.Length == 2 && history[0]?.Action == "create" && history[1]?.Details == newEvent.Details,
+        "Le journal doit relire les anciens événements indentés et les nouveaux événements JSONL.");
+    Check(File.ReadLines(historyPath).Last().StartsWith('{'),
+        "Un événement ajouté au journal doit tenir sur une ligne.");
     await clientRegistryService.SaveAsync(clientSettings.ClientRegistryPath, clientRegistry);
     var clientBiblideoPath = Path.Combine(clientPath, clientSettings.ClientBiblideoFolderName);
     Directory.CreateDirectory(Path.Combine(clientBiblideoPath, "2607"));

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using Biblideo.Core.Models;
+using Biblideo.Core.Services;
 
 namespace Biblideo.App.Services;
 
@@ -9,7 +10,7 @@ public sealed class LicenseCatalogService
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     private readonly OutlookMsgReader _reader = new();
 
-    public async Task<IReadOnlyList<ParsedLicenseMessage>> ReadAsync(IReadOnlyList<string> paths, string indexPath, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ParsedLicenseMessage>> ReadAsync(IReadOnlyList<string> paths, string indexPath, CancellationToken cancellationToken = default, bool updateIndex = true)
     {
         var distinctPaths = paths.Where(File.Exists).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var index = await LoadAsync(indexPath, cancellationToken);
@@ -29,36 +30,35 @@ public sealed class LicenseCatalogService
         if (pending.Count > 0)
             results.AddRange(await _reader.ReadManyAsync(pending));
 
-        var refreshedEntries = results.Select(message =>
+        if (updateIndex)
         {
-            var info = new FileInfo(message.FullPath);
-            return new LicenseIndexEntry
+            var refreshedEntries = results.Select(message =>
             {
-                FullPath = message.FullPath,
-                Length = info.Exists ? info.Length : 0,
-                LastWriteUtcTicks = info.Exists ? info.LastWriteTimeUtc.Ticks : 0,
-                Subject = message.Subject,
-                Recipients = message.Recipients.ToList(),
-                ExpiryDate = message.ExpiryDate,
-                Error = message.Error
-            };
-        }).ToArray();
-        var requestedPaths = distinctPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        index.Entries = index.Entries
-            .Where(entry => !requestedPaths.Contains(entry.FullPath) && File.Exists(entry.FullPath))
-            .Concat(refreshedEntries)
-            .DistinctBy(entry => entry.FullPath, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        await SaveAsync(indexPath, index, cancellationToken);
+                var info = new FileInfo(message.FullPath);
+                return new LicenseIndexEntry
+                {
+                    FullPath = message.FullPath,
+                    Length = info.Exists ? info.Length : 0,
+                    LastWriteUtcTicks = info.Exists ? info.LastWriteTimeUtc.Ticks : 0,
+                    Subject = message.Subject,
+                    Recipients = message.Recipients.ToList(),
+                    ExpiryDate = message.ExpiryDate,
+                    Error = message.Error
+                };
+            }).ToArray();
+            var requestedPaths = distinctPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            index.Entries = index.Entries
+                .Where(entry => !requestedPaths.Contains(entry.FullPath) && File.Exists(entry.FullPath))
+                .Concat(refreshedEntries)
+                .DistinctBy(entry => entry.FullPath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            await SaveAsync(indexPath, index, cancellationToken);
+        }
         return results.OrderBy(message => message.FileName, StringComparer.CurrentCultureIgnoreCase).ToArray();
     }
 
-    public async Task AppendHistoryAsync(string path, LicenseHistoryEntry entry, CancellationToken cancellationToken = default)
-    {
-        var directory = Path.GetDirectoryName(path) ?? throw new InvalidOperationException("Chemin du journal licences invalide.");
-        Directory.CreateDirectory(directory);
-        await File.AppendAllTextAsync(path, JsonSerializer.Serialize(entry, JsonOptions) + Environment.NewLine, cancellationToken);
-    }
+    public Task AppendHistoryAsync(string path, LicenseHistoryEntry entry, CancellationToken cancellationToken = default) =>
+        OperationHistory.AppendAsync(path, entry, cancellationToken);
 
     private static ParsedLicenseMessage ToMessage(LicenseIndexEntry entry) => new()
     {

@@ -68,7 +68,7 @@ public partial class DashboardView : UserControl
                         if (!Directory.Exists(folder)) continue;
                         foreach (var path in Directory.EnumerateFiles(folder, "*.msg", SearchOption.TopDirectoryOnly)) pathOwners[path] = client;
                     }
-                    var messages = await _catalogService.ReadAsync(pathOwners.Keys.ToArray(), _settings.GetEffectiveLicenseIndexPath());
+                    var messages = await _catalogService.ReadAsync(pathOwners.Keys.ToArray(), _settings.GetEffectiveLicenseIndexPath(), updateIndex: false);
                     var byPath = messages.ToDictionary(message => message.FullPath, StringComparer.OrdinalIgnoreCase);
                     foreach (var client in scan.Clients)
                     {
@@ -179,7 +179,7 @@ public partial class DashboardView : UserControl
         var result = new List<(DateTime Timestamp, DashboardActivity Item)>();
         foreach (var path in paths.Where(File.Exists))
         {
-            foreach (var line in File.ReadLines(path).TakeLast(80))
+            foreach (var line in OperationHistory.ReadEntries(path).TakeLast(80))
             {
                 try
                 {
