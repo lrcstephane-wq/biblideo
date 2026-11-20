@@ -32,7 +32,7 @@ dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
 | Démarrage et navigation | Accueil, raccourcis, état actif, navigation au clavier avec bandeau replié et retour aux modules. Dépôt GitHub privé injoignable affiché comme vérification indisponible. |
 | Atelier, clients et licences | Opérations Biblidéo sur copies, affichage Liste/Cartes, journal mixte, Outlook bureau, expiration et distribution vérifiée. Examiner les journaux et les archives résultantes. |
 | Fenêtres et défilement | Windows 10/11, 100–200 % DPI, petite résolution et deux moniteurs de densités différentes. Vérifier focus des dialogues, barres dans les tableaux et menus, fluidité des listes et absence de contenu coupé. Ajouter détachement, restauration et moniteur débranché à la recette quand ces fonctions seront intégrées. |
-| Futur stockage | Trois utilisateurs simultanés, conflit de modification affiché, coupure VPN, lecture seule datée, restauration et reprise avec résultat vérifiable. |
+| Futur stockage | Trois utilisateurs simultanés, conflit de modification affiché, perte d’accès au stockage, lecture seule datée depuis le dossier Nextcloud local, restauration et reprise avec résultat vérifiable. |
 | Futures opérations | Fixtures couvrant import et retour arrière, chemins de bureau et Nextcloud, licences Atlas, suspensions, renouvellements, MRR/ARR, publications pilotes et partielles et réédition d’archives. |
 
 Utiliser un compte Windows de test ou une VM sans accès aux partages de production. La branche reprend les emplacements de configuration de Biblidéo pour assurer sa compatibilité. Éviter d’exécuter l’artefact de recette sous un profil Windows où Biblidéo est déjà connecté aux dossiers clients.
