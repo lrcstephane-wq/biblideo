@@ -4,7 +4,7 @@
 
 - La fenêtre principale conserve le cadre Windows natif. La navigation repliable regroupe les vues métier et l’atelier Biblidéo. Les libellés sont disponibles pour l’accessibilité et en infobulle quand le bandeau est replié.
 - Accueil ouvre le tableau de bord existant. La consultation des licences depuis cette page utilise le cache s’il existe sans réécrire son index. Les indicateurs restent ceux de Biblidéo.
-- Applications donne un accès à l’atelier et aux licences de Biblidéo et indique l’état d’intégration d’Atlas. Cette vue correspond à un répertoire initial, avec fiches éditables à développer.
+- Applications donne accès à l’atelier et aux licences de Biblidéo. La fiche Atlas annonce les fonctions d’administration à développer dans Nexus, à savoir la gestion et la distribution des licences ainsi que la distribution des mises à jour. Atlas reste une application distincte. Cette vue correspond à un répertoire initial, avec fiches éditables à développer.
 - Les styles de navigation propres à Nexus sont dans `Themes/NexusWorkspace.xaml`. Les vues héritées partagent déjà `App.xaml` et ses styles d’ascenseurs dans les deux sens. Les listes et cartes virtualisées continuent d’utiliser les contrôles existants.
 
 ## Design retenu pour la suite

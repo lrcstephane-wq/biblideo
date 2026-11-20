@@ -30,7 +30,8 @@
                     <TextBlock Text="Atlas" FontSize="19" FontWeight="SemiBold" />
                     <TextBlock Text="Licences Standard et Créateur par poste."
                                Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" TextWrapping="Wrap" />
-                    <TextBlock Text="Gestion des licences Atlas à intégrer." Foreground="{StaticResource WarningBrush}" Margin="0,8,0,0" />
+                    <TextBlock Text="À venir dans Nexus · Gestion et distribution des licences, distribution des mises à jour."
+                               Foreground="{StaticResource WarningBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </StackPanel>
