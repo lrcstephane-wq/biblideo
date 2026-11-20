@@ -8,8 +8,11 @@ public static class CrashLogService
 {
     private static readonly object SyncRoot = new();
 
-    public static string SharedLogDirectory => Path.Combine(SettingsDefaults.ApplicationDataRoot, "Logs");
-    public static string LocalFallbackDirectory => Path.Combine(
+    public static string SharedLogDirectory => Path.Combine(
+        NexusPreviewProfile.Enabled ? NexusPreviewProfile.DataRoot : SettingsDefaults.ApplicationDataRoot, "Logs");
+    public static string LocalFallbackDirectory => NexusPreviewProfile.Enabled
+        ? Path.Combine(Path.GetTempPath(), "Ideo Nexus Preview", "Logs")
+        : Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
         "Biblideo",
         "Logs");

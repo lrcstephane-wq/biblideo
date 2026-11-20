@@ -9,6 +9,9 @@
     <StartupObject>Biblideo.App.Program</StartupObject>
     <Version>1.6.1</Version>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(NexusPreview)' == 'true'">
+    <DefineConstants>$(DefineConstants);NEXUS_PREVIEW</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Biblideo.Core\Biblideo.Core.csproj" />
   </ItemGroup>

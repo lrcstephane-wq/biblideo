@@ -47,6 +47,11 @@ public partial class ProductPackageView : UserControl
     {
         _settings = settings;
         InitializeComponent();
+        if (NexusPreviewProfile.Enabled)
+        {
+            SourcePathText.IsReadOnly = true;
+            BrowseSourceButton.IsEnabled = false;
+        }
         Loaded += ProductPackageView_Loaded;
     }
 

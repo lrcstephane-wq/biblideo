@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\Biblideo.App\Services\NexusPreviewProfile.cs" Link="NexusPreviewProfile.cs" />
     <ProjectReference Include="..\..\src\Biblideo.Core\Biblideo.Core.csproj" />
   </ItemGroup>
 </Project>

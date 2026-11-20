@@ -1,3 +1,4 @@
+using Biblideo.App.Services;
 using System.Text.Json;
 using Biblideo.Core.Models;
 using Biblideo.Core.Services;
@@ -41,6 +42,28 @@ try
     var cached = await settingsService.LoadAsync();
     Check(settingsService.LastLoadUsedCache, "La copie locale doit être utilisée si le réseau est indisponible.");
     Check(cached.SourceScPath == settings.SourceScPath, "La copie locale doit conserver les réglages partagés.");
+
+    var previewRoot = Path.Combine(testRoot, "nexus-preview");
+    var (previewSettings, previewClients) = await NexusPreviewProfile.LoadAsync(previewRoot);
+    var previewRegistry = await new ClientRegistryService().LoadAsync(previewClients.RegistryPath);
+    var previewContext = ClientModuleContext.Create(previewSettings, previewClients);
+    var previewScan = new ClientManagementService().Scan(previewContext, previewRegistry);
+    Check(previewScan.Clients.Count == 3 && previewScan.Clients.All(client => client.StructureIsValid),
+        "L’aperçu doit générer trois fiches fictives avec leurs sous-dossiers.");
+    Check(previewClients.NotificationRecipients.Count == 0 && previewSettings.ClientsRootPath.StartsWith(previewRoot),
+        "L’aperçu doit rester isolé des clients et des destinataires habituels.");
+    var demoScan = await new LibraryScanner().ScanAsync(previewSettings.SourceScPath);
+    var demoPlan = new ProductPackageSimulationService().BuildPlan(
+        demoScan, demoScan.Components, previewSettings, LibraryVariant.SC, "001_Demo_(SC)");
+    Check(demoScan.Components.Count == 3 && demoPlan.Files.Count >= 4 && demoPlan.BlockingErrors.Count == 0,
+        "L’aperçu doit fournir des composants avec lesquels simuler un package produit.");
+    await File.WriteAllTextAsync(Path.Combine(previewRoot, "bootstrap.json"),
+        JsonSerializer.Serialize(new { SharedSettingsPath = sharedPath }));
+    var (reopenedPreview, reopenedPreviewClients) = await NexusPreviewProfile.LoadAsync(previewRoot);
+    var reopenedRegistry = await new ClientRegistryService().LoadAsync(reopenedPreviewClients.RegistryPath);
+    Check(reopenedPreview.SharedSettingsPath == previewSettings.SharedSettingsPath
+          && reopenedRegistry.Clients.Select(client => client.Id).SequenceEqual(previewRegistry.Clients.Select(client => client.Id)),
+        "L’aperçu doit ignorer un pointeur externe et conserver les identifiants de démonstration entre deux lancements.");
 
     var libraryRoot = Path.Combine(testRoot, "library");
     var componentRoot = Path.Combine(libraryRoot, "_Ideo_Utilisateur", "Caisson");

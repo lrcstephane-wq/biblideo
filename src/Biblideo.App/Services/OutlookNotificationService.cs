@@ -12,7 +12,7 @@ public sealed class OutlookNotificationService
     {
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("L’envoi Outlook est disponible uniquement sous Windows.");
-        if (changes.Count == 0) return;
+        if (NexusPreviewProfile.Enabled || changes.Count == 0) return;
         if (recipients.Count == 0)
             throw new InvalidOperationException("Aucun destinataire n’est configuré pour les notifications clients.");
 

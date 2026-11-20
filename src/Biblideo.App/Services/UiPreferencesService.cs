@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using Biblideo.Core.Models;
 
 namespace Biblideo.App.Services;
 
@@ -10,10 +11,7 @@ public sealed class UiPreferencesService
 
     public UiPreferencesService(string? localDataRoot = null)
     {
-        var root = localDataRoot ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Ideo Solutions",
-            "Biblideo");
+        var root = localDataRoot ?? (NexusPreviewProfile.Enabled ? NexusPreviewProfile.DataRoot : SettingsDefaults.ApplicationDataRoot);
         _filePath = Path.Combine(root, "ui-preferences.json");
     }
 

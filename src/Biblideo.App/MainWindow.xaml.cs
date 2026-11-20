@@ -11,8 +11,8 @@ namespace Biblideo.App;
 
 public partial class MainWindow : Window
 {
-    private readonly SettingsService _settingsService = new();
-    private readonly ClientModuleSettingsService _clientSettingsService = new();
+    private readonly SettingsService _settingsService = new(NexusPreviewProfile.Enabled ? NexusPreviewProfile.DataRoot : null);
+    private readonly ClientModuleSettingsService _clientSettingsService = new(NexusPreviewProfile.Enabled ? NexusPreviewProfile.DataRoot : null);
     private readonly ApplicationUpdateService _updateService = new();
     private bool _navigationCollapsed;
     private AppSettings _settings = new();
@@ -21,6 +21,14 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        if (NexusPreviewProfile.Enabled)
+        {
+            Title = "Idéo Nexus · Aperçu";
+            UpdateButton.Visibility = Visibility.Collapsed;
+            AppModeText.Text = "Aperçu · Données fictives";
+            AppModeText.Visibility = Visibility.Visible;
+        }
+        foreach (var button in NavigationButtons) button.IsEnabled = false;
         Loaded += MainWindow_Loaded;
         SourceInitialized += (_, _) => ApplyDarkTitleBar();
     }
@@ -28,16 +36,24 @@ public partial class MainWindow : Window
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         Loaded -= MainWindow_Loaded;
-        _settings = await _settingsService.LoadAsync();
-        _clientSettings = await _clientSettingsService.LoadAsync(_settings);
+        if (NexusPreviewProfile.Enabled)
+        {
+            (_settings, _clientSettings) = await NexusPreviewProfile.LoadAsync(NexusPreviewProfile.DataRoot);
+        }
+        else
+        {
+            _settings = await _settingsService.LoadAsync();
+            _clientSettings = await _clientSettingsService.LoadAsync(_settings);
+        }
         if (_settingsService.LastLoadUsedCache)
         {
             AppModeText.Text = "Configuration réseau indisponible · copie locale utilisée";
             AppModeText.Visibility = Visibility.Visible;
         }
+        foreach (var button in NavigationButtons) button.IsEnabled = true;
         NavigateTo("Home");
-        VersionText.Text = $"v{_updateService.CurrentVersion}";
-        await CheckForUpdatesAsync();
+        VersionText.Text = NexusPreviewProfile.Enabled ? "Aperçu" : $"v{_updateService.CurrentVersion}";
+        if (!NexusPreviewProfile.Enabled) await CheckForUpdatesAsync();
     }
 
     private async Task CheckForUpdatesAsync()

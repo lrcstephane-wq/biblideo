@@ -30,6 +30,21 @@ public partial class SettingsView : UserControl
         _saved = saved;
         InitializeComponent();
         LoadValues();
+        if (NexusPreviewProfile.Enabled)
+        {
+            foreach (var input in Descendants(this).OfType<TextBox>()) input.IsReadOnly = true;
+            foreach (var button in Descendants(this).OfType<Button>()) button.IsEnabled = false;
+            TestResultText.Text = "Paramètres de démonstration · lecture seule";
+        }
+    }
+
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            yield return child;
+            foreach (var descendant in Descendants(child)) yield return descendant;
+        }
     }
 
     private void LoadValues()
@@ -118,6 +133,7 @@ public partial class SettingsView : UserControl
 
     private async void SaveButton_Click(object sender, RoutedEventArgs e)
     {
+        if (NexusPreviewProfile.Enabled) return;
         var stagedSettings = new AppSettings
         {
             SharedSettingsPath = SharedSettingsText.Text.Trim(),

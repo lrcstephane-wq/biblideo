@@ -36,3 +36,13 @@ dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
 | Futures opérations | Fixtures couvrant import et retour arrière, chemins de bureau et Nextcloud, licences Atlas, suspensions, renouvellements, MRR/ARR, publications pilotes et partielles et réédition d’archives. |
 
 Utiliser un compte Windows de test ou une VM sans accès aux partages de production. La branche reprend les emplacements de configuration de Biblidéo pour assurer sa compatibilité. Éviter d’exécuter l’artefact de recette sous un profil Windows où Biblidéo est déjà connecté aux dossiers clients.
+
+## Aperçu autonome pour Windows
+
+L’aperçu se compile avec la propriété `NexusPreview=true`. Il ouvre l’interface Nexus et les parcours Biblidéo existants sur trois clients et des composants fictifs, dans le dossier `%LOCALAPPDATA%\Ideo Solutions\Nexus Preview`. Les paramètres de cet aperçu sont consultables en lecture seule. Les mises à jour via GitHub et les notifications Outlook sont désactivées dans cette variante. Les opérations d’atelier utilisent les chemins de démonstration. Les fichiers TopSolid fictifs servent à la simulation des packages.
+
+```powershell
+dotnet publish src/Biblideo.App -c Release -r win-x64 --self-contained true -p:NexusPreview=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o artifacts/NexusPreview
+```
+
+Le fichier produit `Biblideo.exe` peut être renommé en `Ideo_Nexus_Apercu.exe` pour un essai côte à côte. Le nouveau registre SQLite et la copie de consultation Nextcloud restent à raccorder à l’interface Windows.
