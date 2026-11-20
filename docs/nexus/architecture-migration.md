@@ -4,7 +4,13 @@
 
 Le dossier de paramétrage Nexus et les données nécessaires à la consultation sont partagés sur le réseau du bureau. Ce dossier est synchronisé automatiquement vers Nextcloud. Au bureau, chaque poste utilise le partage réseau. En déplacement, il utilise le dossier Nextcloud synchronisé localement, sans VPN. Toute référence persistée utilise un chemin relatif, identique dans les deux emplacements. Seule la racine, enregistrée localement sur le poste, change.
 
-Ce fonctionnement couvre l’accès aux fichiers synchronisés. Le besoin de créer ou modifier les clients, licences et distributions depuis l’extérieur reste à préciser. Si la consultation suffit, le dossier partagé peut recevoir des exports cohérents et datés en lecture seule. Si l’écriture doit être possible à distance, il faudra un accès aux opérations du stockage de référence, à choisir séparément de la synchronisation Nextcloud.
+| Situation | Fonctionnement de Nexus |
+| --- | --- |
+| Au bureau, service accessible | Lecture et modification dans le stockage de référence, selon les permissions. |
+| En déplacement, Internet et service accessibles | Lecture et modification dans le même stockage de référence, sans VPN et selon les permissions. Les fichiers synchronisés restent accessibles par la racine Nextcloud locale. |
+| Hors connexion, ou service inaccessible | Consultation de la dernière copie disponible en lecture seule, avec sa date. Aucune modification n’est mise en attente. |
+
+L’accès en écriture depuis l’extérieur passe par un accès authentifié au service de référence, séparé de la synchronisation Nextcloud. Le mode d’exposition du service et l’authentification restent à valider. Le dossier partagé peut recevoir des exports cohérents et datés pour la consultation hors connexion.
 
 ## Stockage à valider
 
@@ -19,7 +25,7 @@ Voir [les recommandations de SQLite pour les accès réseau](https://www.sqlite.
 ## Organisation
 
 - **Client Windows WPF**. Navigation, présentation, accès aux chemins locaux et consultation du cache, commandes métier adressées au service.
-- **Service interne .NET**. Une API et un processus, accès LAN au bureau, authentification et autorisations centralisées. Chaque changement sensible combine état métier et trace horodatée dans la même transaction. Contrôle de révision pour éviter les modifications concurrentes silencieuses. Permissions suivant le périmètre autorisé. Vérifier d’abord si l’infrastructure d’identité Windows de l’entreprise peut être réutilisée.
+- **Service interne .NET**. Une API et un processus, accès LAN au bureau, accès authentifié à distance sans VPN, autorisations centralisées. Chaque changement sensible combine état métier et trace horodatée dans la même transaction. Contrôle de révision pour éviter les modifications concurrentes silencieuses. Permissions suivant le périmètre autorisé. Vérifier d’abord si l’infrastructure d’identité Windows de l’entreprise peut être réutilisée.
 - **Métier commun**. Clients, applications et versions, commercial, droits techniques, publications, documents, partenaires et journal. Une fiche application définit le mode de licence, les offres et le profil de distribution. Les comportements spécialisés sont appelés aux points où une règle varie. Deux modules concrets suffisent au départ.
 - **Biblidéo**. Conserver le scanner, les règles TopSolid, les services de packages, les rapports et le flux de licence reçu. Les catalogues suivent des fiches communes et la préparation SC/EP reste dans le module Biblidéo.
 - **Administration d’Atlas**. Nexus suit les droits, les postes et les échéances, prépare les renouvellements et distribue les licences et les mises à jour Atlas. Atlas reste une application distincte avec son installation, Horizon, Forge et son catalogue. Nexus distribue les fichiers de mise à jour Atlas déjà préparés. Si Nexus déclenche l’émission de licences, il la délègue au mécanisme compatible Atlas avec accès restreint au signataire. La validation dans Atlas reste locale. Prévisualiser les lots de renouvellement et afficher un résultat par poste.
