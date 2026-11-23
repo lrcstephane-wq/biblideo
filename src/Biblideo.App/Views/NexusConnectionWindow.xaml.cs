@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Controls;
 using Biblideo.App.Services;
+using Microsoft.Win32;
 
 namespace Biblideo.App.Views;
 
@@ -8,38 +10,38 @@ public partial class NexusConnectionWindow : Window
     public NexusConnectionWindow()
     {
         InitializeComponent();
-        AddressInput.Text = NexusRegistryClient.Address ?? string.Empty;
-        DisconnectButton.IsEnabled = NexusRegistryClient.IsShared;
-    }
-
-    private void Disconnect_Click(object sender, RoutedEventArgs e)
-    {
-        NexusRegistryClient.Disconnect();
-        Close();
-    }
-
-    private async void Connect_Click(object sender, RoutedEventArgs e)
-    {
-        ConnectButton.IsEnabled = DisconnectButton.IsEnabled = false;
+        NasMode.IsChecked = true;
         try
         {
-            NexusRegistryClient.Configure(AddressInput.Text, TokenInput.Password);
-            await NexusRegistryClient.GetSessionAsync();
-            if (IsLoaded) DialogResult = true;
-        }
-        catch (Exception error) when (NexusRegistryClient.ConnectionUnavailable(error))
-        {
-            StatusText.Text = "Service inaccessible. Ferme cette fenêtre pour consulter la copie locale si elle existe.";
+            var location = NexusRegistryLocation.Load();
+            NasInput.Text = location.NasRoot;
+            CloudInput.Text = location.CloudRoot;
+            NasMode.IsChecked = !location.UseCloud;
+            CloudMode.IsChecked = location.UseCloud;
         }
         catch (Exception error)
         {
             StatusText.Text = error.Message;
         }
-        finally
+    }
+
+    private void Browse_Click(object sender, RoutedEventArgs e)
+    {
+        var input = sender is Button { Tag: "cloud" } ? CloudInput : NasInput;
+        var dialog = new OpenFolderDialog { Title = "Choisir la racine du registre Nexus" };
+        if (dialog.ShowDialog(this) == true) input.Text = dialog.FolderName;
+    }
+
+    private void Save_Click(object sender, RoutedEventArgs e)
+    {
+        try
         {
-            TokenInput.Clear();
-            ConnectButton.IsEnabled = true;
-            DisconnectButton.IsEnabled = NexusRegistryClient.IsShared;
+            new NexusRegistryLocation(NasInput.Text.Trim(), CloudInput.Text.Trim(), CloudMode.IsChecked == true).Save();
+            DialogResult = true;
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = error.Message;
         }
     }
 }

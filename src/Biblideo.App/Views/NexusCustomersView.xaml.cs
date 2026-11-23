@@ -29,7 +29,9 @@ public partial class NexusCustomersView : UserControl
             var session = await NexusRegistryClient.GetSessionAsync();
             var snapshot = await NexusRegistryClient.LoadCustomersAsync();
             Customers.ItemsSource = snapshot.Clients;
-            StatusText.Text = $"Connecté · {session.Name}";
+            StatusText.Text = session.CanEdit
+                ? $"Registre · {session.Name}"
+                : $"{session.Name} · Registre daté du {snapshot.GeneratedAtUtc.ToLocalTime():dd/MM/yyyy à HH:mm}";
             SetEditing(session.CanEdit);
             ImportButton.IsEnabled = session.CanAdminister && NexusRegistryClient.IsShared;
         }

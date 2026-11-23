@@ -2,8 +2,6 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace Biblideo.App.Services;
@@ -26,53 +24,53 @@ internal sealed record NexusSession(string Name, string Role)
 
 internal static class NexusRegistryClient
 {
-    private static readonly HttpClient Client = new(new SocketsHttpHandler { AllowAutoRedirect = false })
-    {
-        Timeout = TimeSpan.FromSeconds(8)
-    };
     private static readonly HttpClient LocalClient = new(new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false })
     {
+        BaseAddress = new Uri("http://127.0.0.1:5078/"),
         Timeout = TimeSpan.FromSeconds(4)
     };
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static Connection? _connection = NexusPreviewProfile.Enabled
-        || Environment.GetEnvironmentVariable("IDEO_NEXUS_LOCAL_DEV") == "1"
-        ? new(new Uri("http://127.0.0.1:5078/"), null, "local") : null;
+    private static readonly bool LocalDevelopment = NexusPreviewProfile.Enabled
+        || Environment.GetEnvironmentVariable("IDEO_NEXUS_LOCAL_DEV") == "1";
 
-    public static void Disconnect() => _connection = null;
-
-    public static bool IsShared => _connection?.Token is not null;
-    public static string? Address => _connection?.Token is not null ? _connection.Address.AbsoluteUri : null;
-
-    public static void Configure(string address, string token)
+    private static void RequireLocalDevelopment()
     {
-        if (!Uri.TryCreate(address.Trim(), UriKind.Absolute, out var endpoint) || endpoint.Scheme != Uri.UriSchemeHttps
-            || endpoint.UserInfo.Length != 0 || endpoint.Query.Length != 0 || endpoint.Fragment.Length != 0)
-            throw new ArgumentException("Indique une adresse HTTPS Nexus valide.");
-        token = token.Trim();
-        if (token.Length != 64 || !token.All(Uri.IsHexDigit))
-            throw new ArgumentException("Le jeton Nexus doit contenir 64 caractères hexadécimaux.");
-
-        var uri = new Uri(endpoint.AbsoluteUri.TrimEnd('/') + "/");
-        var cacheScope = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{uri}\n{token}")));
-        _connection = new Connection(uri, token, cacheScope);
+        if (!LocalDevelopment)
+            throw new InvalidOperationException("Renseigne la racine du registre dans Paramètres.");
     }
 
-    public static Task<NexusSession> GetSessionAsync() => ReadAsync<NexusSession>(GetConnection(), "session");
+    private static NexusFileRegistry? FileRegistry
+    {
+        get
+        {
+            var location = NexusRegistryLocation.Load();
+            return location.ActiveRoot is { } root ? new NexusFileRegistry(root, location.UseCloud) : null;
+        }
+    }
+
+    public static bool IsShared => FileRegistry is not null;
+
+    public static Task<NexusSession> GetSessionAsync()
+    {
+        var location = NexusRegistryLocation.Load();
+        if (location.ActiveRoot is not null)
+            return Task.FromResult(location.UseCloud ? new NexusSession("Copie cloud · Lecture seule", "Reader") : new NexusSession("NAS", "Administrator"));
+        return ReadAsync<NexusSession>("session");
+    }
 
     public static bool ConnectionUnavailable(Exception error) => error is OperationCanceledException
         || error is HttpRequestException { StatusCode: null, HttpRequestError: HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError };
 
-    private static string CachePath(Connection connection) => Path.Combine(NexusPreviewProfile.Enabled
+    private static string CachePath => Path.Combine(NexusPreviewProfile.Enabled
         ? NexusPreviewProfile.DataRoot
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Ideo Solutions", "Nexus"),
-        "cache", connection.CacheScope, "clients.snapshot.json");
+        "cache", "local", "clients.snapshot.json");
 
     public static async Task<NexusCustomerSnapshot> LoadCustomersAsync()
     {
-        var connection = GetConnection();
-        var snapshot = await ReadAsync<NexusCustomerSnapshot>(connection, "clients");
-        var cachePath = CachePath(connection);
+        if (FileRegistry is { } files) return await files.ReadCustomersAsync();
+        var snapshot = await ReadAsync<NexusCustomerSnapshot>("clients");
+        var cachePath = CachePath;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
@@ -98,8 +96,8 @@ internal static class NexusRegistryClient
     {
         try
         {
-            if (_connection is not { } connection) return null;
-            var data = await File.ReadAllTextAsync(CachePath(connection));
+            if (!LocalDevelopment || FileRegistry is not null) return null;
+            var data = await File.ReadAllTextAsync(CachePath);
             return JsonSerializer.Deserialize<NexusCustomerSnapshot>(data, JsonOptions) is { SchemaVersion: 1 } cached
                 ? cached : null;
         }
@@ -109,60 +107,59 @@ internal static class NexusRegistryClient
         }
     }
 
-    public static Task<NexusAtlasRight[]> LoadAtlasAsync() => ReadAsync<NexusAtlasRight[]>(GetConnection(), "atlas-licenses");
+    public static Task<NexusAtlasRight[]> LoadAtlasAsync() => FileRegistry is { } files
+        ? files.ReadAtlasAsync() : ReadAsync<NexusAtlasRight[]>("atlas-licenses");
 
     public static Task<NexusAtlasEvent[]> LoadAtlasHistoryAsync(string id) =>
-        ReadAsync<NexusAtlasEvent[]>(GetConnection(), $"atlas-licenses/{Uri.EscapeDataString(id)}/history");
+        FileRegistry is { } files ? files.ReadHistoryAsync(id)
+            : ReadAsync<NexusAtlasEvent[]>($"atlas-licenses/{Uri.EscapeDataString(id)}/history");
 
     public static async Task<string> DownloadAtlasAsync(string id)
     {
-        using var response = await RequestAsync(GetConnection(), HttpMethod.Get, $"atlas-licenses/{Uri.EscapeDataString(id)}/file");
+        if (FileRegistry is { } files) return await files.ReadCodeAsync(id);
+        using var response = await RequestAsync(HttpMethod.Get, $"atlas-licenses/{Uri.EscapeDataString(id)}/file");
         await CheckResponseAsync(response);
         return await response.Content.ReadAsStringAsync();
     }
 
     public static Task WriteAtlasAsync(string id, Guid clientId, string code, long revision, string operation) =>
-        SendAsync(HttpMethod.Put, $"atlas-licenses/{Uri.EscapeDataString(id)}", new { clientId, code, revision, operation });
+        FileRegistry is { } files ? files.WriteAtlasAsync(id, clientId, code, revision, operation)
+        : SendAsync(HttpMethod.Put, $"atlas-licenses/{Uri.EscapeDataString(id)}", new { clientId, code, revision, operation });
 
     public static async Task<CustomerImportResult> ImportCustomersAsync(ImportedBiblideoCustomer[] customers)
     {
-        using var response = await RequestAsync(GetConnection(), HttpMethod.Post, "clients/import-biblideo", JsonContent.Create(customers));
+        if (FileRegistry is { } files) return await files.ImportAsync(customers);
+        using var response = await RequestAsync(HttpMethod.Post, "clients/import-biblideo", JsonContent.Create(customers));
         await CheckResponseAsync(response);
         return await response.Content.ReadFromJsonAsync<CustomerImportResult>()
             ?? throw new InvalidDataException("Résultat d’import indisponible.");
     }
 
-    public static Task SaveCustomerAsync(NexusCustomer? customer, string name) => customer is null
+    public static Task SaveCustomerAsync(NexusCustomer? customer, string name) => FileRegistry is { } files
+        ? files.SaveCustomerAsync(customer, name)
+        : customer is null
         ? SendAsync(HttpMethod.Post, "clients", new { name })
         : SendAsync(HttpMethod.Put, $"clients/{customer.Id:D}", new { name, customer.Revision });
 
-    private static async Task<T> ReadAsync<T>(Connection connection, string route) where T : class
+    private static async Task<T> ReadAsync<T>(string route) where T : class
     {
-        using var response = await RequestAsync(connection, HttpMethod.Get, route);
+        using var response = await RequestAsync(HttpMethod.Get, route);
         await CheckResponseAsync(response);
         return await response.Content.ReadFromJsonAsync<T>() ?? throw new InvalidDataException("Réponse Nexus vide.");
     }
 
     private static async Task SendAsync<T>(HttpMethod method, string route, T payload)
     {
-        using var response = await RequestAsync(GetConnection(), method, route, JsonContent.Create(payload));
+        using var response = await RequestAsync(method, route, JsonContent.Create(payload));
         await CheckResponseAsync(response);
     }
 
-    private static async Task<HttpResponseMessage> RequestAsync(Connection connection, HttpMethod method, string route, HttpContent? content = null)
+    private static async Task<HttpResponseMessage> RequestAsync(HttpMethod method, string route, HttpContent? content = null)
     {
-        using var request = new HttpRequestMessage(method, new Uri(connection.Address, route)) { Content = content };
-        if (connection.Token is { } token)
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-        var response = await (connection.Token is null ? LocalClient : Client).SendAsync(request);
-        if (response.StatusCode == HttpStatusCode.Unauthorized && ReferenceEquals(_connection, connection))
-            Disconnect();
-        return response;
+        RequireLocalDevelopment();
+        using var request = new HttpRequestMessage(method, route) { Content = content };
+        return await LocalClient.SendAsync(request);
     }
-
-    private static Connection GetConnection() => _connection
-        ?? throw new InvalidOperationException("Ouvre Connexion Nexus pour renseigner le serveur et ton jeton.");
 
     private static async Task CheckResponseAsync(HttpResponseMessage response)
     {
@@ -181,6 +178,5 @@ internal static class NexusRegistryClient
 
     internal sealed record CustomerImportResult(int Added, int Existing);
 
-    private sealed record Connection(Uri Address, string? Token, string CacheScope);
     private sealed record ApiError(string? Error);
 }

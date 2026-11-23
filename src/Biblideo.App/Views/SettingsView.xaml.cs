@@ -47,6 +47,9 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void OpenNexusRegistrySettings_Click(object sender, RoutedEventArgs e) =>
+        new NexusConnectionWindow { Owner = Window.GetWindow(this) }.ShowDialog();
+
     private void LoadValues()
     {
         SharedSettingsText.Text = _settings.SharedSettingsPath;

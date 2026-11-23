@@ -43,9 +43,9 @@ public partial class AtlasLicensesView : UserControl
             Customers.ItemsSource = customers.Clients;
             Licenses.ItemsSource = rights;
             Licenses.SelectedItem = rights.FirstOrDefault(right => right.Id == select);
-            StatusText.Text = customers.Clients.Length == 0
+            StatusText.Text = customers.Clients.Length == 0 && session.CanEdit
                 ? "Crée d’abord une fiche dans Clients Nexus."
-                : $"Connecté · {session.Name}";
+                : $"Registre · {session.Name}";
         }
         catch (Exception error)
         {

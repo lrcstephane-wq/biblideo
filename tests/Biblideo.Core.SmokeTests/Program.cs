@@ -59,6 +59,46 @@ try
     Check(importableClients.Any(client => client.Name == "Atelier des Tilleuls")
           && await File.ReadAllTextAsync(previewClients.RegistryPath) == sourceRegistry,
         "L’import doit retrouver le nom lisible sans modifier le registre source.");
+    var nasRoot = Directory.CreateDirectory(Path.Combine(testRoot, "nas")).FullName;
+    var cloudRoot = Directory.CreateDirectory(Path.Combine(testRoot, "cloud")).FullName;
+    var nasRegistry = new NexusFileRegistry(nasRoot, readOnly: false);
+    var secondPost = new NexusFileRegistry(nasRoot, readOnly: false);
+    var cloudRegistry = new NexusFileRegistry(cloudRoot, readOnly: true);
+    var firstImport = await nasRegistry.ImportAsync(importableClients);
+    var repeatedImport = await secondPost.ImportAsync(importableClients);
+    Check(firstImport.Added == importableClients.Length && repeatedImport.Added == 0,
+        "L’import NAS doit conserver les identifiants sans dupliquer les fiches.");
+    var row = (await nasRegistry.ReadCustomersAsync()).Clients[0];
+
+    async Task<bool> TryRenameAsync(NexusFileRegistry registry, string name)
+    {
+        try
+        {
+            await registry.SaveCustomerAsync(row, name);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    var attempts = await Task.WhenAll(
+        Task.Run(() => TryRenameAsync(nasRegistry, "Premier poste")),
+        Task.Run(() => TryRenameAsync(secondPost, "Deuxième poste")));
+    Check(attempts.Count(result => result) == 1, "Deux écritures fondées sur la même révision ne doivent pas s’écraser.");
+    string RegistryPath(string root) => Path.Combine(root, NexusFileRegistry.DirectoryName, NexusFileRegistry.RegistryName);
+    Directory.CreateDirectory(Path.GetDirectoryName(RegistryPath(cloudRoot))!);
+    File.Copy(RegistryPath(nasRoot), RegistryPath(cloudRoot));
+    var cloudContents = await File.ReadAllTextAsync(RegistryPath(cloudRoot));
+    var nasSnapshot = await nasRegistry.ReadCustomersAsync();
+    var cloudSnapshot = await cloudRegistry.ReadCustomersAsync();
+    Check(nasSnapshot.Clients.SequenceEqual(cloudSnapshot.Clients) && nasSnapshot.GeneratedAtUtc == cloudSnapshot.GeneratedAtUtc,
+        "Les deux racines doivent retrouver les mêmes fiches et la même date.");
+    Check(!await TryRenameAsync(cloudRegistry, "Écriture cloud")
+          && await File.ReadAllTextAsync(RegistryPath(cloudRoot)) == cloudContents,
+        "La copie cloud doit rester en lecture seule.");
+
     var demoScan = await new LibraryScanner().ScanAsync(previewSettings.SourceScPath);
     var demoPlan = new ProductPackageSimulationService().BuildPlan(
         demoScan, demoScan.Components, previewSettings, LibraryVariant.SC, "001_Demo_(SC)");

@@ -1,4 +1,6 @@
-# Service Nexus partagé
+# Service Nexus partagé · variante technique
+
+L’application normale utilise désormais le [registre sur le NAS](registre-nas.md). Cette page décrit le service séparé et ses tests, conservés pour le développement.
 
 Le mode partagé démarre une API HTTPS authentifiée sur le serveur Nexus. Les postes Windows renseignent l’adresse et leur jeton personnel dans **Connexion Nexus**. Chaque jeton est attribué à une seule personne. Il reste en mémoire sur son poste pendant la session.
 

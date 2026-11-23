@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="32" MaxWidth="1100" HorizontalAlignment="Left">
+            <Button x:Name="NexusRegistrySettingsButton" Content="Emplacement du registre Nexus"
+                    HorizontalAlignment="Left" Margin="0,0,0,16" Click="OpenNexusRegistrySettings_Click"/>
             <Border Background="#10284A" BorderBrush="#1C7892" BorderThickness="1" CornerRadius="14" Padding="20" Margin="0,0,0,18">
                 <StackPanel>
                     <TextBlock Text="CHEMINS PARAMÉTRABLES" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="Bold" />

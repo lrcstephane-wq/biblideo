@@ -1,20 +1,28 @@
 <Window x:Class="Biblideo.App.Views.NexusConnectionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Connexion Nexus" Width="530" SizeToContent="Height" WindowStartupLocation="CenterOwner"
+        Title="Emplacement du registre Nexus" Width="660" SizeToContent="Height" WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize" ShowInTaskbar="False">
     <StackPanel Margin="24">
-        <TextBlock Text="Adresse HTTPS du service" Margin="0,0,0,6"/>
-        <TextBox x:Name="AddressInput" AutomationProperties.Name="Adresse HTTPS du service"/>
-        <TextBlock Text="Jeton personnel" Margin="0,14,0,6"/>
-        <PasswordBox x:Name="TokenInput" AutomationProperties.Name="Jeton personnel" MaxLength="64"
-                     Padding="8,5" Background="{StaticResource SurfaceBrush}" Foreground="{StaticResource TextBrush}"/>
-        <TextBlock Text="Le jeton reste en mémoire pendant la session." Margin="0,8,0,0" Foreground="{StaticResource MutedBrush}"/>
+        <TextBlock Text="Racine sur le NAS" Margin="0,0,0,6"/>
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Parcourir" Click="Browse_Click" Tag="nas" Margin="8,0,0,0"/>
+            <TextBox x:Name="NasInput" AutomationProperties.Name="Racine sur le NAS"/>
+        </DockPanel>
+        <TextBlock Text="Racine de la copie cloud" Margin="0,14,0,6"/>
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Parcourir" Click="Browse_Click" Tag="cloud" Margin="8,0,0,0"/>
+            <TextBox x:Name="CloudInput" AutomationProperties.Name="Racine de la copie cloud"/>
+        </DockPanel>
+        <TextBlock Text="Emplacement à utiliser" Margin="0,14,0,6"/>
+        <RadioButton x:Name="NasMode" Content="NAS · Accès selon les droits du dossier" Margin="0,0,0,6"/>
+        <RadioButton x:Name="CloudMode" Content="Copie cloud · Consultation" />
+        <TextBlock Text="Nexus utilise le même sous-dossier « Registre Nexus » dans les deux emplacements."
+                   TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{StaticResource MutedBrush}"/>
         <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{StaticResource WarningBrush}"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="DisconnectButton" Content="Se déconnecter" Click="Disconnect_Click" Margin="0,0,8,0"/>
-            <Button Content="Fermer" IsCancel="True" Margin="0,0,8,0"/>
-            <Button x:Name="ConnectButton" Content="Connecter" IsDefault="True" Click="Connect_Click" Style="{StaticResource PrimaryButton}"/>
+            <Button Content="Annuler" IsCancel="True" Margin="0,0,8,0"/>
+            <Button Content="Enregistrer" IsDefault="True" Click="Save_Click" Style="{StaticResource PrimaryButton}"/>
         </StackPanel>
     </StackPanel>
 </Window>

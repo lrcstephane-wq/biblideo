@@ -69,7 +69,6 @@
                 <DockPanel Margin="22,12" LastChildFill="True">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
                         <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
-                        <Button Content="Connexion Nexus" Margin="12,0,0,0" Padding="10,6" Click="ConnectNexus_Click"/>
                         <Button x:Name="UpdateButton" Content="Mise à jour" Margin="12,0,0,0" Padding="10,6"
                                 Click="UpdateButton_Click" ToolTip="Rechercher une version de l’application" />
                     </StackPanel>

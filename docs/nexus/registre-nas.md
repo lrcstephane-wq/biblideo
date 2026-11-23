@@ -1,0 +1,11 @@
+# Registre Nexus sur le NAS
+
+Dans **Paramètres → Emplacement du registre Nexus**, renseigner la racine du partage NAS telle qu’elle apparaît dans l’Explorateur, puis la racine du dossier cloud qui réplique cette même arborescence. Les deux chemins restent propres au poste. Sélectionner l’emplacement voulu dans ces paramètres. Aucun service à installer pour ce mode.
+
+Nexus retrouve dans les deux emplacements le même fichier relatif, `Registre Nexus/registre-nexus.json`. L’application normale lit ce fichier directement depuis le partage avec les droits Windows et NAS du compte courant. Elle l’initialise lors de la première écriture, si le partage est accessible. Nexus sérialise les écritures sur le partage par un verrou de fichier et vérifie la révision de chaque fiche avant une modification. Le fichier d’arrivée est écrit sur le même partage puis renommé pour publier la nouvelle version. Si le partage est indisponible, utiliser explicitement l’autre racine.
+
+La copie cloud fournit les clients, les licences Atlas et leur historique en lecture seule. La date affichée est celle de la dernière écriture du registre copié. Nexus n’envoie aucune opération au NAS quand ce mode est sélectionné. Le verrou `registre-nexus.lock` et les fichiers intermédiaires `arrivage-*.tmp` peuvent être exclus de la réplication. Les licences Atlas signées font partie du fichier de registre et les permissions du dossier NAS et de sa copie cloud doivent donc suivre les accès de l’équipe. La clé privée de signature Atlas reste sur le poste autorisé.
+
+Ce changement concerne les écrans Clients Nexus et Licences Atlas. Le reste de Biblidéo utilise les chemins existants. L’import manuel Biblidéo crée des fiches Nexus avec les mêmes identifiants. Les données déjà saisies dans les bases SQLite précédentes demandent une reprise séparée si elles doivent être conservées.
+
+Le test automatisé simule deux lecteurs/éditeurs sur le même dossier, conserve une seule modification à révision identique et vérifie qu’une copie sous une autre racine reste lisible et inchangée après une tentative d’écriture. La validation du partage Windows/SMB réel et de la réplication cloud reste à réaliser avant la mise à jour du poste.
