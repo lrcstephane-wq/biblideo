@@ -156,11 +156,21 @@ public partial class ClientsView : UserControl
             var registryChanged = ReconcileRegistry(_lastScan.Clients);
             if (registryChanged) await _registryService.SaveAsync(_settings.ClientRegistryPath, _registry);
 
+            ILookup<Guid, NexusAtlasRight>? atlasByClient = null;
+            try
+            {
+                atlasByClient = (await NexusRegistryClient.LoadAtlasAsync()).ToLookup(right => right.ClientId);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException or ArgumentException)
+            {
+                // La liste des clients reste utilisable quand le dossier de licences Atlas est inaccessible.
+            }
+
             foreach (var row in _allRows) row.PropertyChanged -= Row_PropertyChanged;
             _allRows.Clear();
             foreach (var client in _lastScan.Clients)
             {
-                var row = new ClientRowViewModel(client);
+                var row = new ClientRowViewModel(client, atlasByClient?[client.MetadataId].ToArray());
                 row.PropertyChanged += Row_PropertyChanged;
                 _allRows.Add(row);
             }

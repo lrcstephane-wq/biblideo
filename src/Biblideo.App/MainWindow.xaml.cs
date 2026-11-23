@@ -160,9 +160,8 @@ public partial class MainWindow : Window
         (string Title, UserControl View) page = destination switch
         {
             "Home" => ("Accueil", new DashboardView(_settings, clientContext, NavigateTo)),
-            "Clients" => ("Clients Biblidéo", new ClientsView(_settings, clientContext)),
-            "NexusCustomers" => ("Clients Nexus", new NexusCustomersView(clientContext)),
-            "AtlasLicenses" => ("Licences Atlas", new AtlasLicensesView()),
+            "Clients" => ("Clients", new ClientsView(_settings, clientContext)),
+            "AtlasLicenses" => ("Licences Atlas", new AtlasLicensesView(clientContext)),
             "Applications" => ("Applications", new ApplicationsView(NavigateTo)),
             "Licenses" => ("Licences Biblidéo", new LicensesView(_settings, clientContext)),
             "Product" => ("Packages produit", new ProductPackageView(_settings)),

@@ -5,10 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\src\Biblideo.App\Services\NexusPreviewProfile.cs" Link="NexusPreviewProfile.cs" />
-    <Compile Include="..\..\src\Biblideo.App\Services\BiblideoCustomerImport.cs" Link="BiblideoCustomerImport.cs" />
+    <Compile Include="..\..\src\Biblideo.App\Services\BiblideoClientDirectory.cs" Link="BiblideoClientDirectory.cs" />
     <Compile Include="..\..\src\Biblideo.App\Services\NexusFileRegistry.cs" Link="NexusFileRegistry.cs" />
     <Compile Include="..\..\src\Biblideo.App\Services\NexusRegistryClient.cs" Link="NexusRegistryClient.cs" />
     <Compile Include="..\..\src\Biblideo.App\Services\NexusRegistryLocation.cs" Link="NexusRegistryLocation.cs" />
+    <Compile Include="..\..\src\Biblideo.App\ViewModels\ClientRowViewModel.cs" Link="ClientRowViewModel.cs" />
     <ProjectReference Include="..\..\src\Biblideo.Core\Biblideo.Core.csproj" />
   </ItemGroup>
 </Project>

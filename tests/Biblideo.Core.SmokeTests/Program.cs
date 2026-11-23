@@ -53,28 +53,80 @@ try
     Check(previewClients.NotificationRecipients.Count == 0 && previewSettings.ClientsRootPath.StartsWith(previewRoot),
         "L’aperçu doit rester isolé des clients et des destinataires habituels.");
     var sourceRegistry = await File.ReadAllTextAsync(previewClients.RegistryPath);
-    var (importableClients, skippedClients) = await BiblideoCustomerImport.ReadAsync(previewContext);
-    Check(skippedClients == 0 && importableClients.Select(client => client.Id).ToHashSet().SetEquals(previewRegistry.Clients.Select(client => client.Id)),
-        "L’import doit conserver les identifiants Biblidéo des fiches actives.");
-    Check(importableClients.Any(client => client.Name == "Atelier des Tilleuls")
+    var directoryClients = await BiblideoClientDirectory.ReadAsync(previewContext);
+    Check(directoryClients.Select(client => client.Id).ToHashSet().SetEquals(previewRegistry.Clients.Select(client => client.Id)),
+        "Le générateur Atlas doit reprendre les identifiants des dossiers Biblidéo.");
+    Check(directoryClients.Any(client => client.Name == "Atelier des Tilleuls")
           && await File.ReadAllTextAsync(previewClients.RegistryPath) == sourceRegistry,
-        "L’import doit retrouver le nom lisible sans modifier le registre source.");
+        "La lecture doit retrouver le nom sans modifier le registre source.");
+    var ghost = new ClientMetadata { CanonicalName = "absent", FolderName = "Absent_(SC)" };
+    previewRegistry.Clients.Add(ghost);
+    await new ClientRegistryService().SaveAsync(previewClients.RegistryPath, previewRegistry);
+    Check((await BiblideoClientDirectory.ReadAsync(previewContext)).All(client => client.Id != ghost.Id),
+        "Un ancien identifiant sans dossier ne doit plus apparaître dans le générateur.");
+    previewRegistry.Clients.Remove(ghost);
+    await new ClientRegistryService().SaveAsync(previewClients.RegistryPath, previewRegistry);
+
     var nasRoot = Directory.CreateDirectory(Path.Combine(testRoot, "nas")).FullName;
     var cloudRoot = Directory.CreateDirectory(Path.Combine(testRoot, "cloud")).FullName;
-    var nasRegistry = new NexusFileRegistry(nasRoot, readOnly: false);
-    var secondPost = new NexusFileRegistry(nasRoot, readOnly: false);
-    var cloudRegistry = new NexusFileRegistry(cloudRoot, readOnly: true);
-    var firstImport = await nasRegistry.ImportAsync(importableClients);
-    var repeatedImport = await secondPost.ImportAsync(importableClients);
-    Check(firstImport.Added == importableClients.Length && repeatedImport.Added == 0,
-        "L’import NAS doit conserver les identifiants sans dupliquer les fiches.");
-    var row = (await nasRegistry.ReadCustomersAsync()).Clients[0];
+    using var signingKey = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+    var key = signingKey.ExportECPrivateKeyPem();
+    var publicKey = signingKey.ExportSubjectPublicKeyInfoPem();
+    var nasRegistry = new NexusFileRegistry(nasRoot, readOnly: false, publicKey);
+    var secondPost = new NexusFileRegistry(nasRoot, readOnly: false, publicKey);
+    var cloudRegistry = new NexusFileRegistry(cloudRoot, readOnly: true, publicKey);
+    var customer = directoryClients[0];
+    var legacy = new NexusCustomer(Guid.NewGuid(), "Ancienne fiche Nexus");
+    var id = Guid.NewGuid().ToString("N");
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var expiry = today.AddDays(30);
+    var oldClaims = new AtlasLicenseClaims(legacy.Name, id, "ATL-0000-0000-0000-0000-0001", expiry, true);
+    var oldCode = AtlasLicenseCodec.Sign(oldClaims, key, publicKey);
+    var oldRight = new NexusAtlasRight(id, legacy.Id, legacy.Name, oldClaims.DeviceId, expiry, true, 1);
+    string RegistryPath(string root) => Path.Combine(root, NexusFileRegistry.DirectoryName, NexusFileRegistry.RegistryName);
+    Directory.CreateDirectory(Path.GetDirectoryName(RegistryPath(nasRoot))!);
+    await File.WriteAllTextAsync(RegistryPath(nasRoot), JsonSerializer.Serialize(new
+    {
+        schemaVersion = 1, revision = 1L, updatedAtUtc = DateTimeOffset.UtcNow, clients = new[] { legacy },
+        atlas = new[] { new { right = oldRight, code = oldCode } },
+        events = new[] { new { operation = "create", recordedAtUtc = DateTimeOffset.UtcNow, previous = (NexusAtlasRight?)null, current = oldRight } }
+    }));
+    var legacyFile = await File.ReadAllTextAsync(RegistryPath(nasRoot));
+    Check((await nasRegistry.ReadAtlasAsync()).Single().ClientId == legacy.Id, "Les licences Atlas v1 doivent rester lisibles.");
+    var claims = oldClaims with { Customer = customer.Name };
+    string Signed(AtlasLicenseClaims value) => AtlasLicenseCodec.Sign(value, key, publicKey);
+    await nasRegistry.WriteAtlasAsync(id, customer, Signed(claims), 1, "link");
+    Check((await nasRegistry.ReadAtlasAsync()).Single().ClientId == customer.Id
+          && (await nasRegistry.ReadHistoryAsync(id)).Length == 2
+          && (await nasRegistry.ReadHistoryAsync(id))[0].Previous?.ClientId == legacy.Id,
+        "Le rattachement doit reprendre l’identifiant commun et conserver le droit et l’historique.");
+    Check(await File.ReadAllTextAsync(Path.Combine(Path.GetDirectoryName(RegistryPath(nasRoot))!, "registre-nexus-v1.bak")) == legacyFile,
+        "Le fichier d’origine doit être sauvegardé lors de la première écriture au nouveau format.");
+    using (var json = JsonDocument.Parse(await File.ReadAllTextAsync(RegistryPath(nasRoot))))
+        Check(json.RootElement.GetProperty("schemaVersion").GetInt32() == 2 && !json.RootElement.TryGetProperty("clients", out _),
+            "Le registre Atlas v2 ne doit plus contenir de liste de clients.");
 
-    async Task<bool> TryRenameAsync(NexusFileRegistry registry, string name)
+    async Task<bool> TryRenewAsync(NexusFileRegistry registry, int days)
     {
         try
         {
-            await registry.SaveCustomerAsync(row, name);
+            await registry.WriteAtlasAsync(id, customer, Signed(claims with { ValidUntil = expiry.AddDays(days) }), 2, "renew");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    // Chaque signature est préparée avant de lancer deux écritures concurrentes.
+    var renewalA = Signed(claims with { ValidUntil = expiry.AddDays(1) });
+    var renewalB = Signed(claims with { ValidUntil = expiry.AddDays(2) });
+    async Task<bool> TryWriteAsync(NexusFileRegistry registry, string code)
+    {
+        try
+        {
+            await registry.WriteAtlasAsync(id, customer, code, 2, "renew");
             return true;
         }
         catch (InvalidOperationException)
@@ -84,20 +136,22 @@ try
     }
 
     var attempts = await Task.WhenAll(
-        Task.Run(() => TryRenameAsync(nasRegistry, "Premier poste")),
-        Task.Run(() => TryRenameAsync(secondPost, "Deuxième poste")));
-    Check(attempts.Count(result => result) == 1, "Deux écritures fondées sur la même révision ne doivent pas s’écraser.");
-    string RegistryPath(string root) => Path.Combine(root, NexusFileRegistry.DirectoryName, NexusFileRegistry.RegistryName);
+        Task.Run(() => TryWriteAsync(nasRegistry, renewalA)),
+        Task.Run(() => TryWriteAsync(secondPost, renewalB)));
+    Check(attempts.Count(result => result) == 1, "Deux renouvellements sur la même révision ne doivent pas s’écraser.");
     Directory.CreateDirectory(Path.GetDirectoryName(RegistryPath(cloudRoot))!);
     File.Copy(RegistryPath(nasRoot), RegistryPath(cloudRoot));
     var cloudContents = await File.ReadAllTextAsync(RegistryPath(cloudRoot));
-    var nasSnapshot = await nasRegistry.ReadCustomersAsync();
-    var cloudSnapshot = await cloudRegistry.ReadCustomersAsync();
-    Check(nasSnapshot.Clients.SequenceEqual(cloudSnapshot.Clients) && nasSnapshot.GeneratedAtUtc == cloudSnapshot.GeneratedAtUtc,
-        "Les deux racines doivent retrouver les mêmes fiches et la même date.");
-    Check(!await TryRenameAsync(cloudRegistry, "Écriture cloud")
+    var rights = await cloudRegistry.ReadAtlasAsync();
+    Check(rights.SequenceEqual(await nasRegistry.ReadAtlasAsync())
+          && !await TryRenewAsync(cloudRegistry, 7)
           && await File.ReadAllTextAsync(RegistryPath(cloudRoot)) == cloudContents,
-        "La copie cloud doit rester en lecture seule.");
+        "La copie cloud doit restituer les licences et rester en lecture seule.");
+    Check(Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus(rights, today).Contains("1/1")
+          && Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus(rights, expiry.AddDays(3)).Contains("expirées")
+          && Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus([], today).Contains("Aucune")
+          && Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus(null, today).Contains("Indisponible"),
+        "La fiche client doit distinguer licence active, expirée, absente et registre indisponible.");
 
     var demoScan = await new LibraryScanner().ScanAsync(previewSettings.SourceScPath);
     var demoPlan = new ProductPackageSimulationService().BuildPlan(

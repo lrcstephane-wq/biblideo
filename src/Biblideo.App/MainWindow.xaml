@@ -34,15 +34,13 @@
                         <Button Tag="Home" Content="Accueil" ToolTip="Accueil" AutomationProperties.Name="Accueil"
                                 AutomationProperties.HelpText="Vue d’ensemble" Click="NavigationButton_Click"
                                 Style="{StaticResource NexusNavButton}" />
-                        <Button Tag="Clients" Content="Clients Biblidéo" ToolTip="Clients Biblidéo" AutomationProperties.Name="Clients Biblidéo"
+                        <Button Tag="Clients" Content="Clients" ToolTip="Clients" AutomationProperties.Name="Clients"
                                 Click="NavigationButton_Click" Style="{StaticResource NexusNavButton}" />
                         <Button Tag="Applications" Content="Applications" ToolTip="Applications" AutomationProperties.Name="Applications"
                                 Click="NavigationButton_Click" Style="{StaticResource NexusNavButton}" />
                         <Button Tag="Licenses" Content="Licences Biblidéo" ToolTip="Licences Biblidéo" AutomationProperties.Name="Licences Biblidéo"
                                 Click="NavigationButton_Click" Style="{StaticResource NexusNavButton}" />
                         <Button Tag="AtlasLicenses" Content="Licences Atlas" ToolTip="Licences Atlas" AutomationProperties.Name="Licences Atlas"
-                                Click="NavigationButton_Click" Style="{StaticResource NexusNavButton}" />
-                        <Button Tag="NexusCustomers" Content="Clients Nexus" ToolTip="Clients Nexus" AutomationProperties.Name="Clients Nexus"
                                 Click="NavigationButton_Click" Style="{StaticResource NexusNavButton}" />
                         <Separator Margin="4,14,4,12" Background="{StaticResource BorderBrush}" />
                         <TextBlock x:Name="WorkshopHeading" Text="ATELIER BIBLIDÉO" FontSize="10" FontWeight="SemiBold"

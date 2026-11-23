@@ -37,7 +37,6 @@
                         <Trigger Property="Tag" Value="Home"><Setter TargetName="Glyph" Property="Text" Value="&#xE80F;" /></Trigger>
                         <Trigger Property="Tag" Value="Clients"><Setter TargetName="Glyph" Property="Text" Value="&#xE716;" /></Trigger>
                         <Trigger Property="Tag" Value="Applications"><Setter TargetName="Glyph" Property="Text" Value="&#xE8FD;" /></Trigger>
-                        <Trigger Property="Tag" Value="NexusCustomers"><Setter TargetName="Glyph" Property="Text" Value="&#xE716;" /></Trigger>
                         <Trigger Property="Tag" Value="AtlasLicenses"><Setter TargetName="Glyph" Property="Text" Value="&#xE8D7;" /></Trigger>
                         <Trigger Property="Tag" Value="Licenses"><Setter TargetName="Glyph" Property="Text" Value="&#xE8D7;" /></Trigger>
                         <Trigger Property="Tag" Value="Product"><Setter TargetName="Glyph" Property="Text" Value="&#xE7B8;" /></Trigger>

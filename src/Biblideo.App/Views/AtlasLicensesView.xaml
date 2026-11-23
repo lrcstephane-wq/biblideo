@@ -13,7 +13,7 @@
                   Background="{StaticResource SurfaceBrush}" Foreground="{StaticResource TextBrush}"
                   RowBackground="{StaticResource SurfaceBrush}" AlternatingRowBackground="{StaticResource BackgroundBrush}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Client" Width="*" Binding="{Binding Customer}"/>
+                <DataGridTextColumn Header="Client" Width="*" Binding="{Binding ClientLabel}"/>
                 <DataGridTextColumn Header="Poste Atlas" Width="220" Binding="{Binding DeviceId}"/>
                 <DataGridTextColumn Header="Offre" Width="100" Binding="{Binding Offer}"/>
                 <DataGridTextColumn Header="Échéance" Width="115" Binding="{Binding ValidUntil, StringFormat=dd/MM/yyyy}"/>
@@ -23,16 +23,16 @@
         <StackPanel Grid.Row="2" Margin="0,14,0,0">
             <WrapPanel x:Name="Fields" IsEnabled="False">
                 <StackPanel Margin="0,0,12,8" Width="200">
-                    <TextBlock Text="Client du registre Nexus"/>
-                    <ComboBox x:Name="Customers" DisplayMemberPath="Name" AutomationProperties.Name="Client du registre Nexus"/>
+                    <TextBlock Text="Client"/>
+                    <ComboBox x:Name="Customers" DisplayMemberPath="Name" AutomationProperties.Name="Client"/>
                 </StackPanel>
                 <StackPanel Margin="0,0,12,8" Width="220">
                     <TextBlock Text="Identifiant du poste Atlas"/>
                     <TextBox x:Name="DeviceInput" MaxLength="40" AutomationProperties.Name="Identifiant du poste Atlas"/>
                 </StackPanel>
                 <StackPanel Margin="0,0,12,8" Width="132">
-                    <TextBlock Text="Échéance (JJ/MM/AAAA)"/>
-                    <TextBox x:Name="ExpiryInput" MaxLength="10" AutomationProperties.Name="Échéance"/>
+                    <TextBlock Text="Fin de validité"/>
+                    <DatePicker x:Name="ExpiryInput" SelectedDateFormat="Short" AutomationProperties.Name="Fin de validité"/>
                 </StackPanel>
                 <StackPanel Margin="0,0,12,8" Width="112">
                     <TextBlock Text="Offre"/>
@@ -41,11 +41,17 @@
                     </ComboBox>
                 </StackPanel>
             </WrapPanel>
+            <WrapPanel Margin="0,0,0,8" IsEnabled="{Binding IsEnabled, ElementName=Fields}">
+                <TextBlock x:Name="KeyStatusText" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Button Content="Choisir la clé Idéo" Click="BrowseKey_Click"/>
+            </WrapPanel>
             <WrapPanel x:Name="Actions" IsEnabled="False">
                 <Button x:Name="CreateButton" Content="Générer une licence" Tag="create" Click="Sign_Click" Style="{StaticResource PrimaryButton}" Margin="0,0,6,6"/>
                 <Button Content="Renouveler" Tag="renew" Click="Sign_Click" Margin="0,0,6,6" x:Name="RenewButton"/>
                 <Button Content="Changer de poste" Tag="transfer" Click="Sign_Click" Margin="0,0,6,6" x:Name="TransferButton"/>
                 <Button Content="Passer en Créateur" Tag="upgrade" Click="Sign_Click" Margin="0,0,6,6" x:Name="UpgradeButton"/>
+                <Button x:Name="LinkButton" Content="Rattacher à une fiche" Tag="link" Click="Sign_Click" Margin="0,0,6,6"/>
+                <Button x:Name="CopyButton" Content="Copier le code" Click="CopyCode_Click" Margin="0,0,6,6"/>
                 <Button Content="Historique" Click="History_Click" Margin="0,0,6,6" x:Name="HistoryButton"/>
                 <Button Content="Exporter le fichier" Click="Export_Click" Margin="0,0,6,6" x:Name="ExportButton"/>
             </WrapPanel>

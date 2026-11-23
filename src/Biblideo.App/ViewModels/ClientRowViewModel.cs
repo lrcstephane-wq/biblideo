@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Biblideo.Core.Models;
+using Biblideo.App.Services;
 
 namespace Biblideo.App.ViewModels;
 
@@ -8,13 +9,26 @@ public sealed class ClientRowViewModel : INotifyPropertyChanged
 {
     private bool _desiredSubscribed;
 
-    public ClientRowViewModel(ClientRecord client)
+    public ClientRowViewModel(ClientRecord client, IReadOnlyList<NexusAtlasRight>? atlasRights = null)
     {
         Client = client;
         _desiredSubscribed = client.IsSubscribed;
+        AtlasRights = atlasRights ?? [];
+        AtlasStatus = GetAtlasStatus(atlasRights, DateOnly.FromDateTime(DateTime.Today));
     }
 
     public ClientRecord Client { get; }
+    public IReadOnlyList<NexusAtlasRight> AtlasRights { get; }
+    public string AtlasStatus { get; }
+
+    internal static string GetAtlasStatus(IReadOnlyList<NexusAtlasRight>? rights, DateOnly today)
+    {
+        if (rights is null) return "Atlas · Indisponible";
+        if (rights.Count == 0) return "Atlas · Aucune licence";
+        var active = rights.Count(right => right.IsActiveOn(today));
+        return active == 0 ? "Atlas · Licences expirées" : $"Atlas · {active}/{rights.Count} poste(s) actif(s)";
+    }
+
     public string DisplayName => Client.DisplayName;
     public string Initials
     {

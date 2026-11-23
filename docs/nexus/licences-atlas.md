@@ -1,29 +1,22 @@
 # Licences Atlas dans Idéo Nexus
 
-L’espace Licences Atlas gère les droits par poste. La vue Licences Biblidéo reste accessible pour le flux Outlook existant. Atlas continue de gérer l’accès Idéo, Forge et Horizon. Le profil Créateur est un droit de licence Atlas et ne confère aucun accès administrateur.
+La création de clients passe par l’écran **Clients** et reprend le fonctionnement Biblidéo avec création des dossiers. Cette même fiche indique les mises à jour Biblidéo et les postes Atlas, leur offre, leur échéance et leur statut. Le registre Atlas du NAS enregistre les licences et leurs événements par identifiant de fiche. Les coordonnées et les dossiers clients restent gérés dans Biblidéo.
 
-## Essai local
+## Générer et distribuer une licence
 
-1. Démarrer le service de développement avec le SDK .NET 10 et la commande `dotnet run --project src/Nexus.Service`.
-2. Ouvrir Idéo Nexus et créer une fiche fictive dans **Clients Nexus**. En cas de coupure du service, le registre relit la dernière copie locale datée en lecture seule si une consultation a déjà réussi.
-3. Dans **Licences Atlas**, choisir le client, saisir le code poste affiché par Atlas, choisir Standard ou Créateur et saisir la date de fin inclusive. Confirmer les informations avant de signer.
-4. Au premier usage dans la vue, sélectionner le fichier PEM privé Atlas déjà conservé sur le poste autorisé. Sa signature est vérifiée contre la clé publique embarquée dans Atlas. Nexus n’enregistre ni ne téléverse la clé privée.
-5. Sélectionner une licence dans la liste pour exporter `Licence.fautpastoucher` vers un dossier choisi. Le fichier exporté correspond à la dernière version enregistrée. La signature est également vérifiée par le service et lors de l’export.
+1. Dans **Licences Atlas**, choisir une fiche client existante, saisir le code du poste affiché par Atlas et choisir Standard ou Créateur. La date de fin est inclusive.
+2. Nexus recherche la clé privée installée par Atlas sur la session Windows. Le bouton **Choisir la clé Idéo** accepte un PEM déjà conservé sur le poste. La signature est contrôlée avec la clé publique d’Atlas. La clé privée reste sur le poste.
+3. Confirmer la génération. La dernière licence enregistrée peut être copiée sous forme de code ou exportée en `Licence.fautpastoucher`.
 
-Les autres opérations disponibles sont le renouvellement à poste identique, le passage de Standard à Créateur et le changement de poste. Le changement de poste conserve la date et le droit et inscrit l’ancien identifiant dans l’historique. Si l’ancien poste est hors ligne, sa précédente licence reste valable jusqu’à sa propre échéance. L’historique de Nexus ne constitue pas une révocation dans Atlas.
+Le renouvellement prolonge l’échéance sans changer de poste. Le passage de Standard à Créateur conserve le poste et la date. Le transfert change de poste en préservant le droit et la date. Si l’ancien poste reste hors ligne, la licence qu’il possède reste utilisable jusqu’à sa propre échéance.
 
-## Vérification automatisée
+Une ancienne licence créée pour une fiche Nexus séparée est signalée **Fiche à rattacher**. Choisir la fiche Biblidéo, puis **Rattacher à une fiche** pour signer le changement de bénéficiaire avec le même identifiant de licence, poste, offre et échéance. Le changement est inscrit dans l’historique. Le registre des licences et la copie cloud suivent les réglages du [registre NAS](registre-nas.md). L’accès administrateur Idéo et Forge reste géré dans Atlas.
+
+## Recette automatisée
 
 ```powershell
-dotnet run --project tests/Nexus.Service.SmokeTests/Nexus.Atlas.SmokeTests.csproj -c Release
+dotnet build Biblideo.sln -c Release
+dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
 ```
 
-Le test utilise une paire ECDSA et une base SQLite temporaires. Il vérifie les deux offres, le rejet d’une autre clé, les règles de renouvellement, de changement de poste, de conflit et d’historisation. Aucun fichier de clé réel n’est requis.
-
-## Limites avant usage partagé
-
-Le registre fonctionne avec le service de test local sur la boucle locale. Les comptes et autorisations Nexus, l’accès distant, la migration complète des dossiers et historiques, la distribution vers Nextcloud et les renouvellements par lot restent à développer. L’export permet la remise manuelle du fichier. L’adresse du service de développement est `127.0.0.1:5078`. L’utilisation de la clé de production sur une machine de test peut générer un vrai droit Atlas. Pour une simple recette d’interface, conserver des fiches fictives et éviter de signer des licences avec la clé réelle.
-
-## Reprendre les identifiants Biblidéo dans la version normale
-
-Dans **Clients Nexus**, l’action **Importer les fiches Biblidéo** lit le registre déjà configuré et propose de reprendre le nom et l’identifiant des fiches actives. L’import est explicite. Les entrées archivées ou incomplètes sont ignorées. Un identifiant déjà présent dans Nexus est conservé, y compris après un changement de nom. Les dossiers, abonnements, licences, contacts et historiques Biblidéo restent dans leur flux d’origine.
+Les tests utilisent des fiches et une paire de clés fictives. Ils vérifient la source client commune, la reprise d’une licence du format précédent, son rattachement, la concurrence et la lecture de la copie cloud.
