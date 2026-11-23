@@ -143,7 +143,8 @@ try
     File.Copy(RegistryPath(nasRoot), RegistryPath(cloudRoot));
     var cloudContents = await File.ReadAllTextAsync(RegistryPath(cloudRoot));
     var rights = await cloudRegistry.ReadAtlasAsync();
-    Check(rights.SequenceEqual(await nasRegistry.ReadAtlasAsync())
+    var nasRights = await nasRegistry.ReadAtlasAsync();
+    Check(Enumerable.SequenceEqual(rights, nasRights)
           && !await TryRenewAsync(cloudRegistry, 7)
           && await File.ReadAllTextAsync(RegistryPath(cloudRoot)) == cloudContents,
         "La copie cloud doit restituer les licences et rester en lecture seule.");

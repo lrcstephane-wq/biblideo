@@ -18,7 +18,7 @@ jobs:
       - name: Récupérer le code de la version
         uses: actions/checkout@v4
         with:
-          ref: "392948595fcab1c51d58e6028bd7cbf173281f37"
+          ref: "4817ce45bff438c5ce6e36d578d2ccfc797efb77"
           persist-credentials: false
 
       - name: Installer .NET 8
@@ -29,6 +29,7 @@ jobs:
       - name: Compiler et vérifier les fiches et le registre
         run: |
           dotnet build Biblideo.sln -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
 
       - name: Générer l’exécutable Windows
@@ -42,4 +43,4 @@ jobs:
         run: |
           $binary = Join-Path $PWD 'publish/Biblideo.exe'
           if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'Biblideo.exe manquant.' }
-          gh release create v1.7.1 "$binary" --target "392948595fcab1c51d58e6028bd7cbf173281f37" --latest --title "Idéo Nexus 1.7.1" --notes "Une fiche client commune, issue de Biblidéo, regroupe l’état des mises à jour et les licences Atlas. Nexus utilise la clé Idéo locale pour générer les licences Atlas Standard et Créateur, copier leur code ou exporter le fichier. Les anciennes licences Atlas peuvent être rattachées à une fiche existante."
+          gh release create v1.7.1 "$binary" --target "4817ce45bff438c5ce6e36d578d2ccfc797efb77" --latest --title "Idéo Nexus 1.7.1" --notes "Une fiche client commune, issue de Biblidéo, regroupe l’état des mises à jour et les licences Atlas. Nexus utilise la clé Idéo locale pour générer les licences Atlas Standard et Créateur, copier leur code ou exporter le fichier. Les anciennes licences Atlas peuvent être rattachées à une fiche existante."
