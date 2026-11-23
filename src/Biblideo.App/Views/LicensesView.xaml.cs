@@ -206,7 +206,7 @@ public partial class LicensesView : UserControl
         LicenseDetailExpiry.Text = row.ExpiryDisplay;
         LicenseDetailClient.Text = $"{row.ClientName} · {row.Variant}";
         LicenseDetailRecipients.Text = row.Client.Emails.Count == 0 ? "Aucune adresse renseignée" : string.Join("\n", row.Client.Emails);
-        LicenseDetailDescription.Text = $"{row.MessageDisplay}. La date la plus lointaine est utilisée lorsqu’un client possède plusieurs licences.";
+        LicenseDetailDescription.Text = $"{row.ValidLicenseDisplay} · {row.MessageDisplay}. La date la plus lointaine est utilisée lorsqu’un client possède plusieurs licences.";
         LicenseDetailAssignButton.Visibility = Visibility.Collapsed;
         LicenseDetailTrashButton.Visibility = Visibility.Collapsed;
         LicenseDetailPlannerButton.Visibility = row.Summary.State is ClientLicenseState.RenewSoon or ClientLicenseState.Expired ? Visibility.Visible : Visibility.Collapsed;

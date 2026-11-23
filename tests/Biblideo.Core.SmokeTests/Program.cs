@@ -472,8 +472,18 @@ try
     var summary = licenseService.Summarize(licenseClient,
     [
         incoming,
-        new ParsedLicenseMessage { FullPath = "old.msg", FileName = "old.msg", ExpiryDate = new DateTime(2026, 8, 1) }
-    ], new DateTime(2026, 8, 23), 10);
+        new ParsedLicenseMessage { FullPath = "today.msg", FileName = "today.msg", ExpiryDate = new DateTime(2026, 8, 23) },
+        new ParsedLicenseMessage { FullPath = "old.msg", FileName = "old.msg", ExpiryDate = new DateTime(2026, 8, 22) },
+        new ParsedLicenseMessage { FullPath = "unknown.msg", FileName = "unknown.msg" },
+        new ParsedLicenseMessage { FullPath = "error.msg", FileName = "error.msg", ExpiryDate = new DateTime(2026, 9, 6), Error = "Lecture incomplète" }
+    ], new DateTime(2026, 8, 23, 16, 0, 0), 10);
+    Check(summary.ValidLicenseCount == 2 && summary.MessageCount == 5 && summary.UnreadableCount == 2,
+        "Le compteur doit inclure le jour d’échéance et exclure les licences expirées ou illisibles.");
+    Check(licenseService.Summarize(emptyClient, [incoming], new DateTime(2026, 8, 23), 10) is
+        { ValidLicenseCount: 1, State: ClientLicenseState.OffSubscription },
+        "Une licence valide doit rester comptée hors abonnement aux mises à jour.");
+    Check(licenseService.Summarize(licenseClient, [], new DateTime(2026, 8, 23), 10).ValidLicenseCount == 0,
+        "Un client sans archive doit afficher zéro licence valide.");
     Check(summary.ExpiryDate == new DateTime(2026, 9, 7) && summary.State == ClientLicenseState.Valid,
         "Le suivi doit conserver l’échéance la plus éloignée parmi plusieurs licences.");
     File.WriteAllText(incoming.FullPath, "contenu msg de test");

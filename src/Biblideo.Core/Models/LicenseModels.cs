@@ -42,6 +42,7 @@ public sealed class ClientLicenseSummary
     public required ClientRecord Client { get; init; }
     public DateTime? ExpiryDate { get; init; }
     public int MessageCount { get; init; }
+    public int ValidLicenseCount { get; init; }
     public int UnreadableCount { get; init; }
     public required ClientLicenseState State { get; init; }
     public int? DaysRemaining { get; init; }

@@ -34,6 +34,9 @@ public sealed class ClientLicenseRowViewModel
         ClientLicenseState.OffSubscription => "Hors mise à jour",
         _ => "À vérifier"
     };
+    public string ValidLicenseDisplay => Summary.ValidLicenseCount <= 1
+        ? $"{Summary.ValidLicenseCount} licence valide"
+        : $"{Summary.ValidLicenseCount} licences valides";
     public string MessageDisplay => Summary.MessageCount switch
     {
         0 => "Aucun mail archivé",

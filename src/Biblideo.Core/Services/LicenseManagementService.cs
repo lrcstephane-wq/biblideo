@@ -48,14 +48,29 @@ public sealed partial class LicenseManagementService
     {
         var validDates = messages.Where(message => message.ExpiryDate.HasValue).Select(message => message.ExpiryDate!.Value.Date).ToArray();
         var expiry = validDates.Length == 0 ? (DateTime?)null : validDates.Max();
+        var currentDate = today.Date;
         var unreadable = messages.Count(message => !string.IsNullOrWhiteSpace(message.Error) || message.ExpiryDate is null);
-        if (!client.IsSubscribed)
-            return new ClientLicenseSummary { Client = client, ExpiryDate = expiry, MessageCount = messages.Count, UnreadableCount = unreadable, State = ClientLicenseState.OffSubscription, DaysRemaining = expiry.HasValue ? (expiry.Value - today.Date).Days : null };
-        if (!expiry.HasValue)
-            return new ClientLicenseSummary { Client = client, MessageCount = messages.Count, UnreadableCount = unreadable, State = messages.Count > 0 ? ClientLicenseState.Unreadable : ClientLicenseState.Missing };
-        var days = (expiry.Value - today.Date).Days;
-        var state = days < 0 ? ClientLicenseState.Expired : days <= warningDays ? ClientLicenseState.RenewSoon : ClientLicenseState.Valid;
-        return new ClientLicenseSummary { Client = client, ExpiryDate = expiry, MessageCount = messages.Count, UnreadableCount = unreadable, State = state, DaysRemaining = days };
+        var validCount = messages.Count(message =>
+            string.IsNullOrWhiteSpace(message.Error) && message.ExpiryDate is { } date && date.Date >= currentDate);
+        int? days = expiry.HasValue ? (expiry.Value - currentDate).Days : null;
+        var state = (client.IsSubscribed, days) switch
+        {
+            (false, _) => ClientLicenseState.OffSubscription,
+            (_, null) => messages.Count > 0 ? ClientLicenseState.Unreadable : ClientLicenseState.Missing,
+            (_, < 0) => ClientLicenseState.Expired,
+            (_, int remaining) when remaining <= warningDays => ClientLicenseState.RenewSoon,
+            _ => ClientLicenseState.Valid
+        };
+        return new ClientLicenseSummary
+        {
+            Client = client,
+            ExpiryDate = expiry,
+            MessageCount = messages.Count,
+            ValidLicenseCount = validCount,
+            UnreadableCount = unreadable,
+            State = state,
+            DaysRemaining = days
+        };
     }
 
     public LicenseMoveResult MoveVerified(string sourcePath, string clientFolder)
