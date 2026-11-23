@@ -19,6 +19,8 @@ public partial class AtlasLicensesView : UserControl
         "Ideo Solutions", "Atlas", "Secrets", "Atlas-Licence-ClePrivee.pem");
     private bool _busy;
     private bool _canAdminister;
+    private bool _canChangeRegistry;
+    private NexusAtlasRight? _selectedRight;
 
     public AtlasLicensesView(ClientModuleContext clients)
     {
@@ -27,7 +29,6 @@ public partial class AtlasLicensesView : UserControl
         if (File.Exists(AtlasKeyPath)) _keyPath = AtlasKeyPath;
         UpdateKeyStatus();
         ExpiryInput.SelectedDate = DateTime.Today.AddYears(1);
-        Licenses.SelectionChanged += Selection_Changed;
         OperatorInput.TextChanged += ClearAdminResponse;
         AdminRequestInput.TextChanged += ClearAdminResponse;
     }
@@ -43,7 +44,11 @@ public partial class AtlasLicensesView : UserControl
     private async Task LoadAsync(string? select)
     {
         SetBusy(true);
-        _canAdminister = false;
+        _canAdminister = _canChangeRegistry = false;
+        SelectRight(null);
+        RegistryCards.ItemsSource = null;
+        RegistryEmptyText.Visibility = Visibility.Visible;
+        RegistryEmptyText.Text = "Registre Atlas indisponible.";
         try
         {
             var location = NexusRegistryClient.Location;
@@ -61,21 +66,24 @@ public partial class AtlasLicensesView : UserControl
             Customers.ItemsSource = customers;
             if (location.ActiveRoot is null)
             {
-                Licenses.ItemsSource = null;
+                RegistryEmptyText.Text = "Renseigne l’emplacement du registre pour afficher les fiches Atlas.";
                 StatusText.Text = "Choisis l’emplacement du registre pour enregistrer des licences de poste.";
                 return;
             }
 
             var rights = await NexusRegistryClient.LoadAtlasAsync();
-            _canAdminister = !location.UseCloud && directoryError is null;
+            _canChangeRegistry = !location.UseCloud;
+            _canAdminister = _canChangeRegistry && directoryError is null;
             var namesById = customers.ToDictionary(customer => customer.Id, customer => customer.Name);
-            var displayedRights = rights.Select(right => right with
-            {
-                ClientLabel = namesById.GetValueOrDefault(right.ClientId) ??
-                    (directoryError is null ? $"{right.Customer} · Fiche à rattacher" : right.Customer)
-            }).ToArray();
-            Licenses.ItemsSource = displayedRights;
-            Licenses.SelectedItem = displayedRights.FirstOrDefault(right => right.Id == select);
+            RegistryCards.ItemsSource = rights.GroupBy(right => right.ClientId)
+                .Select(company => new AtlasCompanyCard(company.Key,
+                    namesById.GetValueOrDefault(company.Key) ?? company.First().Customer,
+                    directoryError is null && !namesById.ContainsKey(company.Key),
+                    company.ToArray(), _canChangeRegistry))
+                .OrderBy(company => company.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+            RegistryEmptyText.Text = "Aucune licence Atlas enregistrée.";
+            RegistryEmptyText.Visibility = rights.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            SelectRight(rights.FirstOrDefault(right => right.Id == select));
             StatusText.Text = directoryError is not null ? $"Fiches clients indisponibles · {directoryError}"
                 : location.UseCloud ? "Copie cloud · Lecture seule"
                 : customers.Length == 0 ? "Crée d’abord une fiche dans Clients."
@@ -83,22 +91,19 @@ public partial class AtlasLicensesView : UserControl
         }
         catch (Exception error)
         {
-            Licenses.ItemsSource = null;
+            _canAdminister = _canChangeRegistry = false;
             StatusText.Text = $"Registre Atlas indisponible · {error.Message}";
         }
         finally
         {
-            _busy = false;
-            Fields.IsEnabled = _canAdminister && Licenses.ItemsSource is not null;
-            Actions.IsEnabled = Licenses.ItemsSource is not null;
-            UpdateSelectionActions();
+            SetBusy(false);
         }
     }
 
     private void SetBusy(bool busy)
     {
         _busy = busy;
-        Licenses.IsEnabled = !busy;
+        RegistryCards.IsEnabled = !busy;
         Fields.IsEnabled = !busy && _canAdminister;
         Actions.IsEnabled = !busy;
         UpdateSelectionActions();
@@ -106,21 +111,21 @@ public partial class AtlasLicensesView : UserControl
 
     private void UpdateSelectionActions()
     {
-        var right = Licenses.SelectedItem as NexusAtlasRight;
+        var right = _selectedRight;
         var linked = right is not null && Customers.Items.OfType<NexusCustomer>().Any(client => client.Id == right.ClientId);
         CreateButton.IsEnabled = _canAdminister && Customers.Items.Count != 0;
         RenewButton.IsEnabled = TransferButton.IsEnabled = _canAdminister && linked;
         ExportButton.IsEnabled = CopyButton.IsEnabled = _canAdminister && right is not null;
-        HistoryButton.IsEnabled = OpenGeneratorButton.IsEnabled = !_busy && right is not null;
         UpgradeButton.IsEnabled = _canAdminister && linked && right is { IsCreator: false };
         LinkButton.IsEnabled = _canAdminister && right is not null && !linked && Customers.Items.Count != 0;
     }
 
-    private void Selection_Changed(object sender, SelectionChangedEventArgs e)
+    private void SelectRight(NexusAtlasRight? right)
     {
         GeneratedLicenseText.Clear();
+        _selectedRight = right;
         UpdateSelectionActions();
-        if (Licenses.SelectedItem is not NexusAtlasRight right) return;
+        if (right is null) return;
         Customers.SelectedItem = Customers.Items.OfType<NexusCustomer>().FirstOrDefault(customer => customer.Id == right.ClientId);
         DeviceInput.Text = right.DeviceId;
         ExpiryInput.SelectedDate = right.ValidUntil.ToDateTime(TimeOnly.MinValue);
@@ -130,7 +135,7 @@ public partial class AtlasLicensesView : UserControl
     private async void Sign_Click(object sender, RoutedEventArgs e)
     {
         if (_busy || !_canAdminister || !Actions.IsEnabled || sender is not Button { Tag: string operation }) return;
-        var current = operation == "create" ? null : Licenses.SelectedItem as NexusAtlasRight;
+        var current = operation == "create" ? null : _selectedRight;
         if (current is null && operation != "create") return;
         var customer = Customers.SelectedItem as NexusCustomer;
         if (customer is null)
@@ -215,7 +220,53 @@ public partial class AtlasLicensesView : UserControl
             await RefreshAsync();
     }
 
-    private void OpenGenerator_Click(object sender, RoutedEventArgs e) => LicenseTabs.SelectedItem = GeneratorTab;
+    private void OpenGenerator_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy || sender is not Button { Tag: NexusAtlasRight right }) return;
+        SelectRight(right);
+        LicenseTabs.SelectedItem = GeneratorTab;
+    }
+
+    private async void RemoveLicense_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: NexusAtlasRight right })
+            await RemoveAsync(right.ClientId, [right], right.DeviceId, entireCompany: false);
+    }
+
+    private async void RemoveCompanyLicenses_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: AtlasCompanyCard company })
+            await RemoveAsync(company.Id, company.Licenses, company.Name, entireCompany: true);
+    }
+
+    private async Task RemoveAsync(Guid clientId, NexusAtlasRight[] displayedRights, string label, bool entireCompany)
+    {
+        if (_busy || !_canChangeRegistry) return;
+
+        var title = entireCompany ? "Supprimer toutes les licences Atlas" : "Supprimer la licence Atlas";
+        var scope = entireCompany
+            ? $"{label} · {displayedRights.Length} licence(s) Atlas seront supprimées du registre."
+            : $"La licence du poste {label} sera supprimée du registre.";
+        if (!IdeoDialog.Confirm(title, scope, "Un code déjà installé dans Atlas reste valable jusqu’à son échéance.",
+                primaryLabel: "Supprimer")) return;
+
+        SetBusy(true);
+        try
+        {
+            await NexusRegistryClient.RemoveAtlasAsync(clientId, displayedRights, entireCompany);
+            var select = displayedRights.Any(right => right.Id == _selectedRight?.Id) ? null : _selectedRight?.Id;
+            await LoadAsync(select);
+            StatusText.Text = $"Registre Atlas · {displayedRights.Length} licence(s) supprimée(s).";
+        }
+        catch (Exception error)
+        {
+            IdeoDialog.Warning("Suppression Atlas impossible", error.Message);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
 
     private void ClearAdminResponse(object sender, TextChangedEventArgs e)
     {
@@ -267,7 +318,7 @@ public partial class AtlasLicensesView : UserControl
 
     private async void CopyCode_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || !_canAdminister || Licenses.SelectedItem is not NexusAtlasRight right) return;
+        if (_busy || !_canAdminister || _selectedRight is not { } right) return;
         SetBusy(true);
         try
         {
@@ -288,7 +339,7 @@ public partial class AtlasLicensesView : UserControl
 
     private async void History_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || Licenses.SelectedItem is not NexusAtlasRight right) return;
+        if (_busy || sender is not Button { Tag: NexusAtlasRight right }) return;
         SetBusy(true);
         try
         {
@@ -302,6 +353,7 @@ public partial class AtlasLicensesView : UserControl
                     "transfer" => "Changement de poste",
                     "upgrade" => "Passage en Créateur",
                     "link" => "Rattachement à une fiche client",
+                    "remove" => "Suppression du registre",
                     _ => entry.Operation
                 };
                 return $"{entry.RecordedAtUtc.ToLocalTime():dd/MM/yyyy HH:mm} · {label}\n"
@@ -331,7 +383,7 @@ public partial class AtlasLicensesView : UserControl
 
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || Licenses.SelectedItem is not NexusAtlasRight right) return;
+        if (_busy || !_canAdminister || _selectedRight is not { } right) return;
         var picker = new SaveFileDialog { FileName = "Licence.fautpastoucher", Filter = "Licence Atlas|*.fautpastoucher", OverwritePrompt = true };
         if (picker.ShowDialog(Window.GetWindow(this)) != true) return;
         SetBusy(true);
@@ -359,5 +411,9 @@ public partial class AtlasLicensesView : UserControl
         {
             SetBusy(false);
         }
+    }
+    private sealed record AtlasCompanyCard(Guid Id, string Name, bool NeedsLink, NexusAtlasRight[] Licenses, bool CanDelete)
+    {
+        public string Summary => $"{Licenses.Length} poste(s) · {Licenses.Count(right => right.IsActiveOn(DateOnly.FromDateTime(DateTime.Today)))} licence(s) active(s)";
     }
 }

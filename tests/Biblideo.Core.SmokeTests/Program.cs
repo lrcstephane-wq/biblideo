@@ -154,6 +154,48 @@ try
           && Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus(null, today).Contains("Indisponible"),
         "La fiche client doit distinguer licence active, expirée, absente et registre indisponible.");
 
+    async Task<bool> TryRemoveAtlasAsync(NexusFileRegistry registry, NexusAtlasRight[] selected, bool entireCompany)
+    {
+        try
+        {
+            await registry.RemoveAtlasAsync(customer.Id, selected, entireCompany);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    async Task<string> CreateAtlasPostAsync(NexusCustomer beneficiary, string device)
+    {
+        var newId = Guid.NewGuid().ToString("N");
+        var newClaims = new AtlasLicenseClaims(beneficiary.Name, newId, device, expiry, false);
+        await nasRegistry.WriteAtlasAsync(newId, beneficiary, Signed(newClaims), 0, "create");
+        return newId;
+    }
+
+    var secondId = await CreateAtlasPostAsync(customer, "ATL-0000-0000-0000-0000-0002");
+    var otherId = await CreateAtlasPostAsync(directoryClients[1], "ATL-0000-0000-0000-0000-0003");
+    Check(!await TryRemoveAtlasAsync(nasRegistry, nasRights, entireCompany: true)
+          && (await nasRegistry.ReadAtlasAsync()).Length == 3,
+        "Une suppression groupée doit refuser une sélection périmée sans supprimer de licence.");
+    Check(!await TryRemoveAtlasAsync(cloudRegistry, rights, entireCompany: false)
+          && await File.ReadAllTextAsync(RegistryPath(cloudRoot)) == cloudContents,
+        "La liste cloud interdit aussi les suppressions de licences.");
+    var displayed = await nasRegistry.ReadAtlasAsync();
+    var single = displayed.Single(right => right.Id == secondId);
+    Check(await TryRemoveAtlasAsync(nasRegistry, [single], entireCompany: false)
+          && (await nasRegistry.ReadAtlasAsync()).Any(right => right.Id == id)
+          && (await nasRegistry.ReadHistoryAsync(secondId)).First().Operation == "remove",
+        "La suppression d’un poste laisse les autres licences du client et conserve l’événement.");
+    var remainingRights = await nasRegistry.ReadAtlasAsync();
+    var companyRights = remainingRights.Where(right => right.ClientId == customer.Id).ToArray();
+    Check(await TryRemoveAtlasAsync(nasRegistry, companyRights, entireCompany: true)
+          && (await nasRegistry.ReadAtlasAsync()).Single().Id == otherId
+          && (await nasRegistry.ReadHistoryAsync(id)).First().Operation == "remove",
+        "La suppression groupée conserve les licences des autres sociétés et journalise l’opération.");
+
     var requestTime = DateTimeOffset.UtcNow;
     var requestJson = JsonSerializer.SerializeToUtf8Bytes(new
     {

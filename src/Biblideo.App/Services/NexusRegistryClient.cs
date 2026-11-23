@@ -6,8 +6,6 @@ internal sealed record NexusCustomer(Guid Id, string Name);
 
 public sealed record NexusAtlasRight(string Id, Guid ClientId, string Customer, string DeviceId, DateOnly ValidUntil, bool IsCreator, long Revision)
 {
-    [System.Text.Json.Serialization.JsonIgnore]
-    public string? ClientLabel { get; init; }
     public string Offer => IsCreator ? "Créateur" : "Standard";
     public bool IsActiveOn(DateOnly date) => ValidUntil >= date;
     public string Status => IsActiveOn(DateOnly.FromDateTime(DateTime.Today)) ? "Valide" : "Expirée";
@@ -30,6 +28,9 @@ internal static class NexusRegistryClient
     public static Task<NexusAtlasRight[]> LoadAtlasAsync() => Open().ReadAtlasAsync();
     public static Task<NexusAtlasEvent[]> LoadAtlasHistoryAsync(string id) => Open().ReadHistoryAsync(id);
     public static Task<string> DownloadAtlasAsync(string id) => Open().ReadCodeAsync(id);
+
+    public static Task RemoveAtlasAsync(Guid clientId, IReadOnlyList<NexusAtlasRight> expected, bool entireCompany) =>
+        Open().RemoveAtlasAsync(clientId, expected, entireCompany);
 
     public static async Task WriteAtlasAsync(ClientModuleContext context, string id, NexusCustomer customer,
         string code, long revision, string operation)

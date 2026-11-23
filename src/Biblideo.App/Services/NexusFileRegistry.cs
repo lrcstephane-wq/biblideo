@@ -69,6 +69,29 @@ internal sealed class NexusFileRegistry(string root, bool readOnly, string? publ
         });
     }
 
+    public Task RemoveAtlasAsync(Guid clientId, IReadOnlyList<NexusAtlasRight> expected, bool entireCompany) => MutateAsync(data =>
+    {
+        if (expected.Count == 0 || (!entireCompany && expected.Count != 1)
+            || expected.Any(right => right.ClientId != clientId))
+            throw new InvalidOperationException("La sélection des licences Atlas est invalide.");
+
+        var displayedRevisions = expected.Select(right => (right.Id, right.Revision)).ToHashSet();
+        var current = data.Atlas.Where(entry => entry.Right.ClientId == clientId).Select(entry => entry.Right);
+        var removed = entireCompany
+            ? current.ToArray()
+            : current.Where(right => right.Id == expected[0].Id).ToArray();
+
+        if (displayedRevisions.Count != expected.Count
+            || !displayedRevisions.SetEquals(removed.Select(right => (right.Id, right.Revision))))
+            throw new InvalidOperationException("Les licences ont changé. Actualise le registre avant de réessayer.");
+
+        var now = DateTimeOffset.UtcNow;
+        data.Atlas.RemoveAll(entry => entry.Right.ClientId == clientId
+            && displayedRevisions.Contains((entry.Right.Id, entry.Right.Revision)));
+        data.Events.AddRange(removed.Select(right => new NexusAtlasEvent("remove", now, right, right)));
+        return true;
+    });
+
     private async Task<RegistryFile> ReadAsync()
     {
         try

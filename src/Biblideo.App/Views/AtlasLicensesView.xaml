@@ -4,12 +4,61 @@
              xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
              Loaded="Refresh_Click">
     <UserControl.Resources>
-        <Style x:Key="AtlasColumnHeader" TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="Padding" Value="10,7"/>
+        <DataTemplate x:Key="ClientNameTemplate">
+            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/>
+        </DataTemplate>
+        <Style x:Key="AtlasCalendar" TargetType="Calendar">
+            <Style.Resources>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="#182636"/>
+                </Style>
+            </Style.Resources>
+            <Setter Property="Foreground" Value="#182636"/>
+            <Setter Property="CalendarDayButtonStyle">
+                <Setter.Value>
+                    <Style TargetType="primitives:CalendarDayButton">
+                        <Setter Property="Foreground" Value="#182636"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsInactive" Value="True">
+                                <Setter Property="Foreground" Value="#52647A"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="#132B46"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="CalendarButtonStyle">
+                <Setter.Value>
+                    <Style TargetType="primitives:CalendarButton">
+                        <Setter Property="Foreground" Value="#182636"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
         </Style>
+        <Style x:Key="RegistryCardContainer" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ValidLicenseLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="Expirée">
+                    <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <BooleanToVisibilityConverter x:Key="ShowWhenTrue"/>
         <Style TargetType="primitives:DatePickerTextBox">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="Background" Value="{StaticResource FieldBrush}"/>
@@ -71,7 +120,7 @@
                                 <WrapPanel x:Name="Fields" IsEnabled="False" Margin="0,12,0,2">
                                     <StackPanel Margin="0,0,12,8" Width="200">
                                         <TextBlock Text="Client"/>
-                                        <ComboBox x:Name="Customers" DisplayMemberPath="Name" AutomationProperties.Name="Client"/>
+                                        <ComboBox x:Name="Customers" ItemTemplate="{StaticResource ClientNameTemplate}" TextSearch.TextPath="Name" AutomationProperties.Name="Client"/>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,12,8" Width="220">
                                         <TextBlock Text="Identifiant du poste Atlas"/>
@@ -79,7 +128,7 @@
                                     </StackPanel>
                                     <StackPanel Margin="0,0,12,8" Width="132">
                                         <TextBlock Text="Fin de validité"/>
-                                        <DatePicker x:Name="ExpiryInput" SelectedDateFormat="Short" Foreground="{StaticResource TextBrush}" AutomationProperties.Name="Fin de validité"/>
+                                        <DatePicker x:Name="ExpiryInput" CalendarStyle="{StaticResource AtlasCalendar}" SelectedDateFormat="Short" Foreground="{StaticResource TextBrush}" AutomationProperties.Name="Fin de validité"/>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,12,8" Width="112">
                                         <TextBlock Text="Offre"/>
@@ -129,23 +178,63 @@
             </TabItem>
             <TabItem Header="Registre">
                 <Grid Margin="16">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <WrapPanel Margin="0,0,0,10">
-                        <Button x:Name="OpenGeneratorButton" Content="Ouvrir la licence dans le générateur" Click="OpenGenerator_Click" Margin="0,0,8,0"/>
-                        <Button x:Name="HistoryButton" Content="Historique" Click="History_Click"/>
-                    </WrapPanel>
-                    <DataGrid Grid.Row="1" x:Name="Licenses" ColumnHeaderStyle="{StaticResource AtlasColumnHeader}" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
-                              EnableRowVirtualization="True" EnableColumnVirtualization="True"
-                              Background="{StaticResource SurfaceBrush}" Foreground="{StaticResource TextBrush}"
-                              RowBackground="{StaticResource SurfaceBrush}" AlternatingRowBackground="{StaticResource BackgroundBrush}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Client" Width="*" Binding="{Binding ClientLabel}"/>
-                            <DataGridTextColumn Header="Poste Atlas" Width="220" Binding="{Binding DeviceId}"/>
-                            <DataGridTextColumn Header="Offre" Width="100" Binding="{Binding Offer}"/>
-                            <DataGridTextColumn Header="Échéance" Width="115" Binding="{Binding ValidUntil, StringFormat=dd/MM/yyyy}"/>
-                            <DataGridTextColumn Header="État" Width="95" Binding="{Binding Status}"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <ListBox x:Name="RegistryCards" Background="Transparent" BorderThickness="0"
+                             ItemContainerStyle="{StaticResource RegistryCardContainer}"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                        BorderThickness="1" CornerRadius="12" Margin="0,0,10,12" MaxWidth="1140"
+                                        HorizontalAlignment="Stretch">
+                                    <StackPanel Margin="18,14">
+                                        <DockPanel LastChildFill="True">
+                                            <Button DockPanel.Dock="Right" Tag="{Binding}" Click="RemoveCompanyLicenses_Click"
+                                                    Content="Supprimer toutes les licences" Margin="16,0,0,0" VerticalAlignment="Center"
+                                                    Foreground="{StaticResource WarningBrush}" IsEnabled="{Binding CanDelete}"/>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Summary}" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+                                                <TextBlock Text="Fiche client à rattacher" Margin="0,4,0,0" Foreground="{StaticResource WarningBrush}"
+                                                           Visibility="{Binding NeedsLink, Converter={StaticResource ShowWhenTrue}}"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <ItemsControl ItemsSource="{Binding Licenses}" Margin="0,12,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{StaticResource FieldBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                                            BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,6">
+                                                        <DockPanel LastChildFill="True">
+                                                            <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                                <Button Content="Gérer" Tag="{Binding}" Click="OpenGenerator_Click" Margin="0,0,6,0"
+                                                                        ToolTip="Ouvrir la licence de ce poste dans le générateur"/>
+                                                                <Button Content="Historique" Tag="{Binding}" Click="History_Click" Margin="0,0,6,0"/>
+                                                                <Button Content="Supprimer la licence" Tag="{Binding}" Click="RemoveLicense_Click"
+                                                                        Foreground="{StaticResource WarningBrush}"
+                                                                        IsEnabled="{Binding DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                                                            </WrapPanel>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding DeviceId}" FontFamily="Consolas"
+                                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding DeviceId}"/>
+                                                                <WrapPanel Margin="0,5,0,0">
+                                                                    <TextBlock Text="{Binding Offer, StringFormat='Licence {0}'}" Margin="0,0,12,0"/>
+                                                                    <TextBlock Text="{Binding ValidUntil, StringFormat='Échéance {0:dd/MM/yyyy}'}"
+                                                                               Foreground="{StaticResource MutedBrush}" Margin="0,0,12,0"/>
+                                                                    <TextBlock Text="{Binding Status}" Style="{StaticResource ValidLicenseLabel}"/>
+                                                                </WrapPanel>
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock x:Name="RegistryEmptyText" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}" Margin="16" TextWrapping="Wrap"/>
                 </Grid>
             </TabItem>
         </TabControl>
