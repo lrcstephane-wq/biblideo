@@ -1,0 +1,53 @@
+name: Publication Idéo Nexus 1.7.2
+
+on:
+  push:
+    branches: ["codex/publish-nexus-1.7.2"]
+    paths: [".github/workflows/publish-nexus-1.7.2.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-nexus-1.7.2
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le code de la version
+        uses: actions/checkout@v4
+        with:
+          ref: "d8fe83874afee3779922a05044c65e1a0a088104"
+          persist-credentials: false
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compiler et lancer les tests métier
+        shell: pwsh
+        run: |
+          dotnet build Biblideo.sln -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
+
+      - name: Générer l’exécutable Windows
+        run: dotnet publish src/Biblideo.App -c Release -r win-x64 --self-contained true -p:NexusPreview=false -p:Version=1.7.2 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish
+
+      - name: Publier Idéo Nexus
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          $binary = Join-Path $PWD 'publish/Biblideo.exe'
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'Biblideo.exe manquant.' }
+          $notes = @'
+          - Contraste corrigé dans le dialogue de réglage du registre.
+          - Les packages communs SC_EP sont pris en compte dans le dernier déploiement SC et EP.
+          - Licences Atlas regroupe le registre et les générateurs Idéo, y compris la réponse Administrateur à usage unique.
+          - La fenêtre Modifier le client affiche les postes Atlas, leurs offres, leurs échéances et leurs états.
+          '@
+          gh release create v1.7.2 "$binary" --target "d8fe83874afee3779922a05044c65e1a0a088104" --latest --title "Idéo Nexus 1.7.2" --notes "$notes"
