@@ -80,6 +80,14 @@ internal static class NexusRegistryClient
     public static Task WriteAtlasAsync(string id, Guid clientId, string code, long revision, string operation) =>
         SendAsync(() => Client.PutAsJsonAsync($"atlas-licenses/{Uri.EscapeDataString(id)}", new { clientId, code, revision, operation }));
 
+    public static async Task<CustomerImportResult> ImportCustomersAsync(ImportedBiblideoCustomer[] customers)
+    {
+        using var response = await Client.PostAsJsonAsync("clients/import-biblideo", customers);
+        await CheckResponseAsync(response);
+        return await response.Content.ReadFromJsonAsync<CustomerImportResult>()
+            ?? throw new InvalidDataException("Résultat d’import indisponible.");
+    }
+
     public static Task SaveCustomerAsync(NexusCustomer? customer, string name) => SendAsync(() => customer is null
         ? Client.PostAsJsonAsync("clients", new { name })
         : Client.PutAsJsonAsync($"clients/{customer.Id:D}", new { name, customer.Revision }));
@@ -90,6 +98,11 @@ internal static class NexusRegistryClient
     private static async Task SendAsync(Func<Task<HttpResponseMessage>> send)
     {
         using var response = await send();
+        await CheckResponseAsync(response);
+    }
+
+    private static async Task CheckResponseAsync(HttpResponseMessage response)
+    {
         if (response.IsSuccessStatusCode) return;
         if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.BadRequest)
         {
@@ -98,6 +111,8 @@ internal static class NexusRegistryClient
         }
         response.EnsureSuccessStatusCode();
     }
+
+    internal sealed record CustomerImportResult(int Added, int Existing);
 
     private sealed record ApiError(string? Error);
 }

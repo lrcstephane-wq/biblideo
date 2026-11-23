@@ -6,6 +6,8 @@ namespace Nexus.Service;
 
 internal sealed record Customer(Guid Id, string Name, long Revision);
 internal sealed record CustomerName(string? Name);
+internal sealed record ImportedCustomer(Guid Id, string? Name);
+internal sealed record CustomerImportResult(int Added, int Existing);
 internal sealed record CustomerEdit(string? Name, long Revision);
 internal sealed record CustomerSnapshot(int SchemaVersion, long Revision, DateTimeOffset GeneratedAtUtc, IReadOnlyList<Customer> Clients);
 
@@ -72,6 +74,28 @@ internal sealed class CustomerRegistry(string databasePath)
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
         var client = new Customer(Guid.NewGuid(), name, 1);
+        Insert(connection, transaction, client);
+        transaction.Commit();
+        return client;
+    }
+
+    public CustomerImportResult Import(IReadOnlyList<ImportedCustomer> records)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var added = 0;
+        foreach (var record in records)
+        {
+            if (Find(connection, transaction, record.Id) is not null) continue;
+            Insert(connection, transaction, new Customer(record.Id, record.Name!.Trim(), 1));
+            added++;
+        }
+        transaction.Commit();
+        return new CustomerImportResult(added, records.Count - added);
+    }
+
+    private static void Insert(SqliteConnection connection, SqliteTransaction transaction, Customer client)
+    {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = "INSERT INTO clients (id, name, revision) VALUES ($id, $name, 1)";
@@ -79,8 +103,6 @@ internal sealed class CustomerRegistry(string databasePath)
         command.Parameters.AddWithValue("$name", client.Name);
         command.ExecuteNonQuery();
         AddEvent(connection, transaction, null, client);
-        transaction.Commit();
-        return client;
     }
 
     public Customer? Rename(Guid id, string name, long revision)

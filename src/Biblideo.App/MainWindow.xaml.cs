@@ -161,7 +161,7 @@ public partial class MainWindow : Window
         {
             "Home" => ("Accueil", new DashboardView(_settings, clientContext, NavigateTo)),
             "Clients" => ("Clients Biblidéo", new ClientsView(_settings, clientContext)),
-            "NexusCustomers" => ("Clients Nexus", new NexusCustomersView()),
+            "NexusCustomers" => ("Clients Nexus", new NexusCustomersView(clientContext)),
             "AtlasLicenses" => ("Licences Atlas", new AtlasLicensesView()),
             "Applications" => ("Applications", new ApplicationsView(NavigateTo)),
             "Licenses" => ("Licences Biblidéo", new LicensesView(_settings, clientContext)),

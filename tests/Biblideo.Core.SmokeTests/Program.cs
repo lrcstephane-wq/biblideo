@@ -52,6 +52,13 @@ try
         "L’aperçu doit générer trois fiches fictives avec leurs sous-dossiers.");
     Check(previewClients.NotificationRecipients.Count == 0 && previewSettings.ClientsRootPath.StartsWith(previewRoot),
         "L’aperçu doit rester isolé des clients et des destinataires habituels.");
+    var sourceRegistry = await File.ReadAllTextAsync(previewClients.RegistryPath);
+    var (importableClients, skippedClients) = await BiblideoCustomerImport.ReadAsync(previewContext);
+    Check(skippedClients == 0 && importableClients.Select(client => client.Id).ToHashSet().SetEquals(previewRegistry.Clients.Select(client => client.Id)),
+        "L’import doit conserver les identifiants Biblidéo des fiches actives.");
+    Check(importableClients.Any(client => client.Name == "Atelier des Tilleuls")
+          && await File.ReadAllTextAsync(previewClients.RegistryPath) == sourceRegistry,
+        "L’import doit retrouver le nom lisible sans modifier le registre source.");
     var demoScan = await new LibraryScanner().ScanAsync(previewSettings.SourceScPath);
     var demoPlan = new ProductPackageSimulationService().BuildPlan(
         demoScan, demoScan.Components, previewSettings, LibraryVariant.SC, "001_Demo_(SC)");

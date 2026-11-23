@@ -9,6 +9,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 
 def request(base_url, route, method="GET", payload=None):
@@ -120,9 +121,19 @@ def main():
         restarted = start_service(binary, environment)
         try:
             assert wait_for(lambda: request(base_url, route)[1]) == updated
+            imported_id = str(uuid.uuid4())
+            imported = {"id": imported_id, "name": "Ancien client Biblidéo"}
+            endpoint = "/clients/import-biblideo"
+            assert request(base_url, endpoint, "POST", [imported, imported])[0] == 400
+            assert request(base_url, "/clients/" + imported_id)[0] == 404
+            assert request(base_url, endpoint, "POST", [imported]) == (200, {"added": 1, "existing": 0})
+            imported_route = "/clients/" + imported_id
+            assert request(base_url, imported_route, "PUT", {"name": "Nom Nexus", "revision": 1})[0] == 200
+            assert request(base_url, endpoint, "POST", [imported]) == (200, {"added": 0, "existing": 1})
+            assert request(base_url, imported_route)[1] == {"id": imported_id, "name": "Nom Nexus", "revision": 2}
         finally:
             stop_service(restarted)
-    print("Nexus Service. Concurrence, historique, export hors connexion et persistance vérifiés.")
+    print("Nexus Service. Concurrence, historique, export hors connexion, persistance et import sans écrasement vérifiés.")
 
 
 if __name__ == "__main__":

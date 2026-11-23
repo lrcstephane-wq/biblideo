@@ -22,4 +22,8 @@ Le test utilise une paire ECDSA et une base SQLite temporaires. Il vérifie les 
 
 ## Limites avant usage partagé
 
-Le registre fonctionne avec le service de test local sur la boucle locale. Les comptes et autorisations Nexus, l’accès distant, l’import des données existantes, la distribution vers Nextcloud et les renouvellements par lot restent à développer. L’export permet la remise manuelle du fichier. L’adresse du service de développement est `127.0.0.1:5078`. L’utilisation de la clé de production sur une machine de test peut générer un vrai droit Atlas. Pour une simple recette d’interface, conserver des fiches fictives et éviter de signer des licences avec la clé réelle.
+Le registre fonctionne avec le service de test local sur la boucle locale. Les comptes et autorisations Nexus, l’accès distant, la migration complète des dossiers et historiques, la distribution vers Nextcloud et les renouvellements par lot restent à développer. L’export permet la remise manuelle du fichier. L’adresse du service de développement est `127.0.0.1:5078`. L’utilisation de la clé de production sur une machine de test peut générer un vrai droit Atlas. Pour une simple recette d’interface, conserver des fiches fictives et éviter de signer des licences avec la clé réelle.
+
+## Reprendre les identifiants Biblidéo dans la version normale
+
+Dans **Clients Nexus**, l’action **Importer les fiches Biblidéo** lit le registre déjà configuré et propose de reprendre le nom et l’identifiant des fiches actives. L’import est explicite. Les entrées archivées ou incomplètes sont ignorées. Un identifiant déjà présent dans Nexus est conservé, y compris après un changement de nom. Les dossiers, abonnements, licences, contacts et historiques Biblidéo restent dans leur flux d’origine.

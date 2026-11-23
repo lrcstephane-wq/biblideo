@@ -7,7 +7,10 @@
             <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <DockPanel Margin="0,0,0,14">
-            <Button DockPanel.Dock="Right" Content="Actualiser" Click="Refresh_Click"/>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button x:Name="ImportButton" Content="Importer les fiches Biblidéo" Click="Import_Click" IsEnabled="False" Margin="0,0,10,0"/>
+                <Button Content="Actualiser" Click="Refresh_Click"/>
+            </StackPanel>
             <TextBlock x:Name="StatusText" VerticalAlignment="Center" Text="Connexion au registre Nexus…" TextWrapping="Wrap"/>
         </DockPanel>
         <ListBox x:Name="Customers" Grid.Row="1" DisplayMemberPath="Name" SelectionChanged="Selection_Changed"

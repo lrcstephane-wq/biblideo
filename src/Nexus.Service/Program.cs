@@ -6,7 +6,7 @@ builder.Configuration.Sources.Clear();
 var port = Environment.GetEnvironmentVariable("IDEO_NEXUS_DEV_PORT") is { } configuredPort
     ? int.Parse(configuredPort, System.Globalization.CultureInfo.InvariantCulture)
     : 5078;
-// Cette instance de développement traite uniquement des données fictives, en local.
+// Cette instance de développement est accessible uniquement depuis le poste courant.
 builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
 
 var dataDirectory = Environment.GetEnvironmentVariable("IDEO_NEXUS_DEV_DIRECTORY")
@@ -32,6 +32,15 @@ clients.MapPost("", (CustomerName request, CustomerRegistry registry) =>
 
     var client = registry.Create(name);
     return Results.Created($"/clients/{client.Id}", client);
+});
+clients.MapPost("/import-biblideo", (ImportedCustomer?[] records, CustomerRegistry registry) =>
+{
+    if (records.Length is < 1 or > 10000
+        || records.Any(record => record is null || record.Id == Guid.Empty || ValidateName(record.Name) is null)
+        || records.Select(record => record!.Id).Distinct().Count() != records.Length)
+        return Results.BadRequest(new { error = "Le registre contient des fiches invalides ou des identifiants en double." });
+
+    return Results.Ok(registry.Import(records.Select(record => record!).ToArray()));
 });
 clients.MapGet("/{id:guid}", (Guid id, CustomerRegistry registry) =>
     registry.Find(id) is { } client ? Results.Ok(client) : Results.NotFound());
