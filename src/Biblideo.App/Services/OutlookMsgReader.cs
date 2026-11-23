@@ -9,14 +9,23 @@ public sealed class OutlookMsgReader
 {
     public Task<IReadOnlyList<ParsedLicenseMessage>> ReadManyAsync(IReadOnlyList<string> paths) => ReadAsync(paths, null);
 
-    public async Task<string?> ReadKeyAsync(string path, string keyId)
+    public async Task<IReadOnlyDictionary<string, string>> ReadKeysAsync(IReadOnlyList<BiblideoLicenseDetail> details)
     {
-        string? key = null;
-        var result = await ReadAsync([path], body => key = LicenseManagementService.FindLicenseKey(body, keyId));
-        return result[0].Error is { } error ? throw new IOException(error) : key;
+        var byPath = details.ToLookup(detail => detail.SourcePath, StringComparer.OrdinalIgnoreCase);
+        var keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        await ReadAsync(byPath.Select(group => group.Key).ToArray(), (path, body) =>
+        {
+            foreach (var detail in byPath[path])
+            {
+                var id = detail.License.KeyId;
+                if (LicenseManagementService.FindLicenseKey(body, id) is { } key)
+                    keys[id] = key;
+            }
+        });
+        return keys;
     }
 
-    private static Task<IReadOnlyList<ParsedLicenseMessage>> ReadAsync(IReadOnlyList<string> paths, Action<string>? inspectBody)
+    private static Task<IReadOnlyList<ParsedLicenseMessage>> ReadAsync(IReadOnlyList<string> paths, Action<string, string>? inspectBody)
     {
         var completion = new TaskCompletionSource<IReadOnlyList<ParsedLicenseMessage>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
@@ -58,7 +67,7 @@ public sealed class OutlookMsgReader
         return completion.Task;
     }
 
-    private static ParsedLicenseMessage ReadOne(object session, string path, Action<string>? inspectBody)
+    private static ParsedLicenseMessage ReadOne(object session, string path, Action<string, string>? inspectBody)
     {
         object? item = null;
         object? recipients = null;
@@ -71,7 +80,7 @@ public sealed class OutlookMsgReader
             var body = itemType.InvokeMember("Body", System.Reflection.BindingFlags.GetProperty, null, item, null)?.ToString() ?? string.Empty;
             recipients = itemType.InvokeMember("Recipients", System.Reflection.BindingFlags.GetProperty, null, item, null);
             var addresses = ReadRecipients(recipients);
-            inspectBody?.Invoke(body);
+            inspectBody?.Invoke(path, body);
             return new ParsedLicenseMessage
             {
                 FullPath = path,

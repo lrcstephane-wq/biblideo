@@ -51,4 +51,5 @@ public sealed class UiPreferences
 {
     public bool ClientsUseCardView { get; set; }
     public bool LicenseTrackingUseCardView { get; set; }
+    public bool AtlasTrackingUseCardView { get; set; } = true;
 }

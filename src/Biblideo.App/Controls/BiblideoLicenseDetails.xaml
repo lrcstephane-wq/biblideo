@@ -16,14 +16,17 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,8,0">
-                                    <Button Content="{Binding Detail.License.KeyLabel}" Tag="{Binding Detail}" Click="RevealKey_Click"
-                                            HorizontalAlignment="Left" Padding="6,2" FontFamily="Consolas"
-                                            ToolTip="Afficher la clé complète depuis le mail archivé"/>
+                                    <TextBlock Text="{Binding KeyText}" FontFamily="Consolas" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                     <TextBlock Text="{Binding DateLabel}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                     <TextBlock Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontSize="11" Margin="0,3,0,0"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="{Binding ActionLabel}" IsEnabled="{Binding CanEdit}" Tag="{Binding Detail}"
-                                        Click="SetUsage_Click" Padding="8,5" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <ToggleButton Style="{StaticResource SwitchToggle}" IsChecked="{Binding IsFollowed, Mode=OneWay}"
+                                                  IsEnabled="{Binding CanEdit}" Tag="{Binding}" Click="SetUsage_Click"
+                                                  ToolTip="{Binding ActionLabel}" AutomationProperties.Name="{Binding ActionLabel}"/>
+                                    <TextBlock Text="{Binding FollowLabel}" HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}"
+                                               FontSize="10" Margin="0,3,0,0"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>

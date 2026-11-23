@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Biblideo.App.Services;
 using Biblideo.Core.Services;
 using Biblideo.Core.Models;
@@ -12,6 +13,9 @@ namespace Biblideo.App.Views;
 public partial class AtlasLicensesView : UserControl
 {
     private readonly ClientModuleContext _clients;
+    private readonly UiPreferencesService _preferencesService = new();
+    private AtlasCompanyCard[] _companies = [];
+    private string _trackingEmptyMessage = "Lecture des licences Atlas…";
     private string? _keyPath;
 
     private static string AtlasKeyPath => Path.Combine(
@@ -26,6 +30,7 @@ public partial class AtlasLicensesView : UserControl
     {
         _clients = clients;
         InitializeComponent();
+        ApplyTrackingLayout(_preferencesService.Load().AtlasTrackingUseCardView, persist: false);
         if (File.Exists(AtlasKeyPath)) _keyPath = AtlasKeyPath;
         UpdateKeyStatus();
         ExpiryInput.SelectedDate = DateTime.Today.AddYears(1);
@@ -43,12 +48,13 @@ public partial class AtlasLicensesView : UserControl
 
     private async Task LoadAsync(string? select)
     {
+        var selectedCompany = (RegistryCards.SelectedItem as AtlasCompanyCard)?.Id;
         SetBusy(true);
         _canAdminister = _canChangeRegistry = false;
         SelectRight(null);
-        RegistryCards.ItemsSource = null;
-        RegistryEmptyText.Visibility = Visibility.Visible;
-        RegistryEmptyText.Text = "Registre Atlas indisponible.";
+        _companies = [];
+        _trackingEmptyMessage = "Lecture des licences Atlas…";
+        RefreshTracking();
         try
         {
             var location = NexusRegistryClient.Location;
@@ -58,7 +64,7 @@ public partial class AtlasLicensesView : UserControl
             {
                 customers = await BiblideoClientDirectory.ReadAsync(_clients);
             }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException)
             {
                 directoryError = error.Message;
             }
@@ -66,7 +72,8 @@ public partial class AtlasLicensesView : UserControl
             Customers.ItemsSource = customers;
             if (location.ActiveRoot is null)
             {
-                RegistryEmptyText.Text = "Renseigne l’emplacement du registre pour afficher les fiches Atlas.";
+                _trackingEmptyMessage = "Renseigne l’emplacement du registre pour afficher les fiches Atlas.";
+                RefreshTracking();
                 StatusText.Text = "Choisis l’emplacement du registre pour enregistrer des licences de poste.";
                 return;
             }
@@ -75,14 +82,14 @@ public partial class AtlasLicensesView : UserControl
             _canChangeRegistry = !location.UseCloud;
             _canAdminister = _canChangeRegistry && directoryError is null;
             var namesById = customers.ToDictionary(customer => customer.Id, customer => customer.Name);
-            RegistryCards.ItemsSource = rights.GroupBy(right => right.ClientId)
+            _companies = rights.GroupBy(right => right.ClientId)
                 .Select(company => new AtlasCompanyCard(company.Key,
                     namesById.GetValueOrDefault(company.Key) ?? company.First().Customer,
                     directoryError is null && !namesById.ContainsKey(company.Key),
                     company.ToArray(), _canChangeRegistry))
                 .OrderBy(company => company.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
-            RegistryEmptyText.Text = "Aucune licence Atlas enregistrée.";
-            RegistryEmptyText.Visibility = rights.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            _trackingEmptyMessage = "Aucune licence Atlas enregistrée.";
+            RefreshTracking(selectedCompany);
             SelectRight(rights.FirstOrDefault(right => right.Id == select));
             StatusText.Text = directoryError is not null ? $"Fiches clients indisponibles · {directoryError}"
                 : location.UseCloud ? "Copie cloud · Lecture seule"
@@ -92,6 +99,8 @@ public partial class AtlasLicensesView : UserControl
         catch (Exception error)
         {
             _canAdminister = _canChangeRegistry = false;
+            _trackingEmptyMessage = "Registre Atlas indisponible.";
+            RefreshTracking();
             StatusText.Text = $"Registre Atlas indisponible · {error.Message}";
         }
         finally
@@ -100,10 +109,64 @@ public partial class AtlasLicensesView : UserControl
         }
     }
 
+    private void TrackingSearch_Changed(object sender, RoutedEventArgs e)
+    {
+        if (RegistryCards is not null) RefreshTracking();
+    }
+
+    private void RefreshTracking(Guid? selectedCompany = null)
+    {
+        selectedCompany ??= (RegistryCards.SelectedItem as AtlasCompanyCard)?.Id;
+        var search = AtlasSearch.Text.Trim();
+        var state = (AtlasStatusFilter.SelectedItem as ComboBoxItem)?.Tag as string;
+        var visible = _companies.Where(company =>
+            (search.Length == 0 || company.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+                || company.Licenses.Any(right => right.DeviceId.Contains(search, StringComparison.OrdinalIgnoreCase))) &&
+            (state switch
+            {
+                "valid" => company.ValidCount > 0,
+                "expired" => company.ExpiredCount > 0,
+                "unlinked" => company.NeedsLink,
+                _ => true
+            })).ToArray();
+
+        RegistryCards.ItemsSource = visible;
+        RegistryCards.SelectedItem = visible.FirstOrDefault(company => company.Id == selectedCompany);
+        RegistryEmptyText.Text = _companies.Length == 0 ? _trackingEmptyMessage : "Aucun client ne correspond aux filtres.";
+        RegistryEmptyText.Visibility = visible.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void TrackingList_Click(object sender, RoutedEventArgs e) => ApplyTrackingLayout(false);
+
+    private void TrackingCards_Click(object sender, RoutedEventArgs e) => ApplyTrackingLayout(true);
+
+    private void ApplyTrackingLayout(bool cards, bool persist = true)
+    {
+        RegistryCards.ItemTemplate = (DataTemplate)FindResource(cards ? "AtlasCompanyCardTemplate" : "AtlasCompanyListTemplate");
+        RegistryCards.ItemContainerStyle = (Style)FindResource(cards ? "AtlasCompanyCardItem" : "AtlasCompanyListItem");
+        RegistryCards.ItemsPanel = (ItemsPanelTemplate)FindResource(cards ? "AtlasCompaniesCardPanel" : "AtlasCompaniesListPanel");
+        AtlasCardsButton.Style = (Style)FindResource(cards ? "PrimaryButton" : typeof(Button));
+        AtlasListButton.Style = (Style)FindResource(cards ? typeof(Button) : "PrimaryButton");
+
+        if (!persist) return;
+        var preferences = _preferencesService.Load();
+        preferences.AtlasTrackingUseCardView = cards;
+        _preferencesService.Save(preferences);
+    }
+
+    private void RegistryCards_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AtlasCompanyDetails is null || e.OriginalSource != RegistryCards) return;
+        AtlasCompanyDetails.DataContext = RegistryCards.SelectedItem;
+        AtlasCompanyDetails.Visibility = RegistryCards.SelectedItem is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void CloseAtlasCompany_Click(object sender, RoutedEventArgs e) => RegistryCards.SelectedItem = null;
+
     private void SetBusy(bool busy)
     {
         _busy = busy;
-        RegistryCards.IsEnabled = !busy;
+        RegistryCards.IsEnabled = AtlasCompanyDetails.IsEnabled = !busy;
         Fields.IsEnabled = !busy && _canAdminister;
         Actions.IsEnabled = !busy;
         UpdateSelectionActions();
@@ -414,6 +477,20 @@ public partial class AtlasLicensesView : UserControl
     }
     private sealed record AtlasCompanyCard(Guid Id, string Name, bool NeedsLink, NexusAtlasRight[] Licenses, bool CanDelete)
     {
-        public string Summary => $"{Licenses.Length} poste(s) · {Licenses.Count(right => right.IsActiveOn(DateOnly.FromDateTime(DateTime.Today)))} licence(s) active(s)";
+        private DateOnly Today { get; } = DateOnly.FromDateTime(DateTime.Today);
+        public int ValidCount => Licenses.Count(right => right.IsActiveOn(Today));
+        public int ExpiredCount => Licenses.Length - ValidCount;
+        public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2).Select(word => char.ToUpperInvariant(word[0])));
+        public string Summary => $"{Licenses.Length} poste{(Licenses.Length == 1 ? string.Empty : "s")} · "
+            + (ValidCount <= 1 ? $"{ValidCount} licence valide" : $"{ValidCount} licences valides");
+        public string Status => NeedsLink ? "À rattacher" : ExpiredCount switch
+        {
+            0 => "Valide",
+            1 => "1 licence expirée",
+            _ => $"{ExpiredCount} licences expirées"
+        };
+        public string StateColor => !NeedsLink && ExpiredCount == 0 ? "#56C99B" : "#D89B54";
+        public string ExpiryLabel => Licenses.Min(right => right.ValidUntil).ToString("dd/MM/yyyy");
     }
 }
