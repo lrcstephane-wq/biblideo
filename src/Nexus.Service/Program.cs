@@ -17,6 +17,7 @@ Directory.CreateDirectory(directory);
 builder.Services.AddSingleton(new CustomerRegistry(Path.Combine(directory, "nexus-dev.sqlite")));
 builder.Services.AddSingleton(new SnapshotDestination(Path.Combine(directory, "clients.snapshot.json")));
 builder.Services.AddHostedService<SnapshotExporter>();
+builder.Services.AddSingleton<AtlasRegistry>();
 
 var app = builder.Build();
 app.Services.GetRequiredService<CustomerRegistry>().Initialize();
@@ -46,6 +47,8 @@ clients.MapPut("/{id:guid}", (Guid id, CustomerEdit request, CustomerRegistry re
         : Results.NotFound();
 });
 
+app.Services.GetRequiredService<AtlasRegistry>().Initialize();
+app.MapAtlasLicenses();
 app.Run();
 
 static string? ValidateName(string? value) => value?.Trim() is { Length: >= 1 and <= 200 } name ? name : null;

@@ -105,7 +105,7 @@ internal sealed class CustomerRegistry(string databasePath)
         return updated;
     }
 
-    private SqliteConnection Open()
+    public SqliteConnection Open()
     {
         var connection = new SqliteConnection(_connectionString);
         try

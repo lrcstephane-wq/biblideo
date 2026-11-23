@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Nexus.Service/Nexus.Service.csproj" />
+    <Compile Include="../../src/Nexus.Service/AtlasRegistry.cs" Link="AtlasRegistry.cs" />
+    <Compile Include="../../src/Nexus.Service/CustomerRegistry.cs" Link="CustomerRegistry.cs" />
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+  </ItemGroup>
+</Project>
