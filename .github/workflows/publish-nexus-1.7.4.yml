@@ -1,0 +1,53 @@
+name: Publication Idéo Nexus 1.7.4
+
+on:
+  push:
+    branches: ["codex/publish-nexus-1.7.4"]
+    paths: [".github/workflows/publish-nexus-1.7.4.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-nexus-1.7.4
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le code de la version
+        uses: actions/checkout@v4
+        with:
+          ref: "047e7e9395ebff01778381610f91b2a27d827991"
+          persist-credentials: false
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compiler et lancer les tests métier
+        shell: pwsh
+        run: |
+          dotnet build Biblideo.sln -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
+
+      - name: Générer l’exécutable Windows
+        run: dotnet publish src/Biblideo.App -c Release -r win-x64 --self-contained true -p:NexusPreview=false -p:Version=1.7.4 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish
+
+      - name: Publier Idéo Nexus
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          $binary = Join-Path $PWD 'publish/Biblideo.exe'
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'Biblideo.exe manquant.' }
+          $notes = @'
+          - Licences Biblidéo : la fiche client et le suivi des licences affichent chaque clé identifiée et sa dernière date de validité.
+          - Une même clé est comptée une seule fois, même si plusieurs mails de renouvellement sont archivés. La synthèse affiche l’échéance la plus proche des clés suivies.
+          - Une clé peut être marquée inutilisée ou remise en suivi depuis le NAS. Les clés inutilisées restent visibles et sortent du compteur et des alertes.
+          - La clé complète peut être consultée en cliquant sur sa référence, depuis le mail archivé.
+          '@
+          gh release create v1.7.4 "$binary" --target "047e7e9395ebff01778381610f91b2a27d827991" --latest --title "Idéo Nexus 1.7.4" --notes "$notes"
