@@ -352,7 +352,7 @@ public partial class ClientsView : UserControl
     private async void EditClient_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: ClientRowViewModel row }) return;
-        var editor = new ClientEditorWindow(_settings.ClientSubscriptionMarker, row.Client) { Owner = Window.GetWindow(this) };
+        var editor = new ClientEditorWindow(_settings.ClientSubscriptionMarker, row) { Owner = Window.GetWindow(this) };
         if (editor.ShowDialog() != true || editor.Draft is not { } draft) return;
         var canonical = ClientFolderNamingService.BuildCanonicalName(draft.BaseName);
         if (_registry.Clients.Any(item => item.Id != row.Client.MetadataId && !item.IsArchived && item.CanonicalName.Equals(canonical, StringComparison.OrdinalIgnoreCase)))

@@ -10,7 +10,7 @@ La création de clients passe par l’écran **Clients** et reprend le fonctionn
 
 Le renouvellement prolonge l’échéance sans changer de poste. Le passage de Standard à Créateur conserve le poste et la date. Le transfert change de poste en préservant le droit et la date. Si l’ancien poste reste hors ligne, la licence qu’il possède reste utilisable jusqu’à sa propre échéance.
 
-Une ancienne licence créée pour une fiche Nexus séparée est signalée **Fiche à rattacher**. Choisir la fiche Biblidéo, puis **Rattacher à une fiche** pour signer le changement de bénéficiaire avec le même identifiant de licence, poste, offre et échéance. Le changement est inscrit dans l’historique. Le registre des licences et la copie cloud suivent les réglages du [registre NAS](registre-nas.md). L’accès administrateur Idéo et Forge reste géré dans Atlas.
+Une ancienne licence créée pour une fiche Nexus séparée est signalée **Fiche à rattacher**. Choisir la fiche Biblidéo, puis **Rattacher à une fiche** pour signer le changement de bénéficiaire avec le même identifiant de licence, poste, offre et échéance. Le changement est inscrit dans l’historique. Le registre des licences et la copie cloud suivent les réglages du [registre NAS](registre-nas.md). Atlas valide l’accès Administrateur Idéo et ouvre Forge. Dans Nexus, **Générateurs Idéo** propose aussi de signer une réponse à usage unique pour une demande affichée sur le poste client. La réponse est liée au poste et à la demande et expire après cinq minutes. Elle nécessite la clé Idéo locale et reste dans la session Nexus, hors registre NAS.
 
 ## Recette automatisée
 

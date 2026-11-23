@@ -154,6 +154,24 @@ try
           && Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus(null, today).Contains("Indisponible"),
         "La fiche client doit distinguer licence active, expirée, absente et registre indisponible.");
 
+    var requestTime = DateTimeOffset.UtcNow;
+    var requestJson = JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        DeviceId = oldClaims.DeviceId, Nonce = Guid.NewGuid().ToString("N"), CreatedUtc = requestTime
+    });
+    var requestCode = "ATLREQ1." + Convert.ToBase64String(requestJson).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    var adminCode = AtlasLicenseCodec.SignAdminResponse(requestCode, "Opérateur test", key, requestTime, publicKey);
+    Check(adminCode.StartsWith("ATLADM1.", StringComparison.Ordinal) && adminCode.Split('.').Length == 3,
+        "Le générateur doit restituer une réponse signée au format administrateur Atlas.");
+    try
+    {
+        AtlasLicenseCodec.SignAdminResponse(requestCode, "Opérateur test", key, requestTime.AddMinutes(16), publicKey);
+        Check(false, "Une demande Administrateur Atlas expirée doit être refusée.");
+    }
+    catch (InvalidOperationException)
+    {
+    }
+
     var demoScan = await new LibraryScanner().ScanAsync(previewSettings.SourceScPath);
     var demoPlan = new ProductPackageSimulationService().BuildPlan(
         demoScan, demoScan.Components, previewSettings, LibraryVariant.SC, "001_Demo_(SC)");
@@ -330,6 +348,24 @@ try
     Check(scannedClient.IsSubscribed && scannedClient.Variant == ClientLibraryVariant.EP, "Le préfixe et la version du client doivent être analysés.");
     Check(scannedClient.LatestDeploymentDisplay == "2608", "Le dernier pack EP doit être détecté avant l’ancien format aamm.");
     Check(scannedClient.Emails.Single() == "client@example.invalid", "Les mails doivent provenir du registre partagé.");
+
+    Directory.CreateDirectory(Path.Combine(clientBiblideoPath, "2609_EP"));
+    Directory.CreateDirectory(Path.Combine(clientBiblideoPath, "2610_SC_EP"));
+    Directory.CreateDirectory(Path.Combine(clientBiblideoPath, "2611_SC"));
+    Directory.CreateDirectory(Path.Combine(clientBiblideoPath, "2619_EP"));
+    var latestEp = clientManagement.Scan(clientSettings, clientRegistry).Clients.Single();
+    Check(latestEp.LatestDeploymentDisplay == "2610",
+        "Le pack SC_EP doit compter pour EP sans retenir un pack SC ni un mois invalide.");
+    var scPath = clientManagement.CreateClient(clientSettings,
+        new ClientDraft("Client SC", ClientLibraryVariant.SC, true, []));
+    var scPackages = Path.Combine(scPath, clientSettings.ClientBiblideoFolderName);
+    Directory.CreateDirectory(Path.Combine(scPackages, "2609_SC"));
+    Directory.CreateDirectory(Path.Combine(scPackages, "2610_SC_EP"));
+    Directory.CreateDirectory(Path.Combine(scPackages, "2611_EP"));
+    Check(clientManagement.Scan(clientSettings, clientRegistry).Clients.Single(client => client.Variant == ClientLibraryVariant.SC)
+              .LatestDeploymentDisplay == "2610",
+        "Avec la structure du NAS, 2610_SC_EP doit remplacer 2609_SC pour un client SC.");
+    Directory.Delete(scPath, recursive: true);
 
     var statusChange = new ClientSubscriptionChange(scannedClient, false);
     var renamed = await clientManagement.ApplySubscriptionChangesAsync(clientSettings, [statusChange]);

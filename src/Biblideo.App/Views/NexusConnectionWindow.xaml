@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Emplacement du registre Nexus" Width="660" SizeToContent="Height" WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize" ShowInTaskbar="False">
+        ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{StaticResource SurfaceBrush}" Foreground="{StaticResource TextBrush}">
     <StackPanel Margin="24">
         <TextBlock Text="Racine sur le NAS" Margin="0,0,0,6"/>
         <DockPanel>

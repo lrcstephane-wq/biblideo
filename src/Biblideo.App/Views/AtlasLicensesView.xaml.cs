@@ -26,7 +26,10 @@ public partial class AtlasLicensesView : UserControl
         InitializeComponent();
         if (File.Exists(AtlasKeyPath)) _keyPath = AtlasKeyPath;
         UpdateKeyStatus();
+        ExpiryInput.SelectedDate = DateTime.Today.AddYears(1);
         Licenses.SelectionChanged += Selection_Changed;
+        OperatorInput.TextChanged += ClearAdminResponse;
+        AdminRequestInput.TextChanged += ClearAdminResponse;
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
@@ -44,7 +47,6 @@ public partial class AtlasLicensesView : UserControl
         try
         {
             var location = NexusRegistryClient.Location;
-            var rights = await NexusRegistryClient.LoadAtlasAsync();
             NexusCustomer[] customers = [];
             string? directoryError = null;
             try
@@ -56,6 +58,15 @@ public partial class AtlasLicensesView : UserControl
                 directoryError = error.Message;
             }
 
+            Customers.ItemsSource = customers;
+            if (location.ActiveRoot is null)
+            {
+                Licenses.ItemsSource = null;
+                StatusText.Text = "Choisis l’emplacement du registre pour enregistrer des licences de poste.";
+                return;
+            }
+
+            var rights = await NexusRegistryClient.LoadAtlasAsync();
             _canAdminister = !location.UseCloud && directoryError is null;
             var namesById = customers.ToDictionary(customer => customer.Id, customer => customer.Name);
             var displayedRights = rights.Select(right => right with
@@ -63,7 +74,6 @@ public partial class AtlasLicensesView : UserControl
                 ClientLabel = namesById.GetValueOrDefault(right.ClientId) ??
                     (directoryError is null ? $"{right.Customer} · Fiche à rattacher" : right.Customer)
             }).ToArray();
-            Customers.ItemsSource = customers;
             Licenses.ItemsSource = displayedRights;
             Licenses.SelectedItem = displayedRights.FirstOrDefault(right => right.Id == select);
             StatusText.Text = directoryError is not null ? $"Fiches clients indisponibles · {directoryError}"
@@ -101,13 +111,14 @@ public partial class AtlasLicensesView : UserControl
         CreateButton.IsEnabled = _canAdminister && Customers.Items.Count != 0;
         RenewButton.IsEnabled = TransferButton.IsEnabled = _canAdminister && linked;
         ExportButton.IsEnabled = CopyButton.IsEnabled = _canAdminister && right is not null;
-        HistoryButton.IsEnabled = right is not null;
+        HistoryButton.IsEnabled = OpenGeneratorButton.IsEnabled = !_busy && right is not null;
         UpgradeButton.IsEnabled = _canAdminister && linked && right is { IsCreator: false };
         LinkButton.IsEnabled = _canAdminister && right is not null && !linked && Customers.Items.Count != 0;
     }
 
     private void Selection_Changed(object sender, SelectionChangedEventArgs e)
     {
+        GeneratedLicenseText.Clear();
         UpdateSelectionActions();
         if (Licenses.SelectedItem is not NexusAtlasRight right) return;
         Customers.SelectedItem = Customers.Items.OfType<NexusCustomer>().FirstOrDefault(customer => customer.Id == right.ClientId);
@@ -164,6 +175,7 @@ public partial class AtlasLicensesView : UserControl
             UpdateKeyStatus();
             _busy = false;
             await RefreshAsync(id);
+            GeneratedLicenseText.Text = code;
             StatusText.Text = $"Code prêt pour {customer.Name} · jusqu’au {expiry:dd/MM/yyyy} inclus.";
         }
         catch (Exception error)
@@ -196,13 +208,72 @@ public partial class AtlasLicensesView : UserControl
 
     private void BrowseKey_Click(object sender, RoutedEventArgs e) => PickKey();
 
+    private async void Configure_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy) return;
+        if (new NexusConnectionWindow { Owner = Window.GetWindow(this) }.ShowDialog() == true)
+            await RefreshAsync();
+    }
+
+    private void OpenGenerator_Click(object sender, RoutedEventArgs e) => LicenseTabs.SelectedItem = GeneratorTab;
+
+    private void ClearAdminResponse(object sender, TextChangedEventArgs e)
+    {
+        AdminResponseText.Clear();
+        CopyAdminButton.IsEnabled = false;
+    }
+
+    private async void GenerateAdminResponse_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy) return;
+        AdminResponseText.Clear();
+        CopyAdminButton.IsEnabled = false;
+        if (_keyPath is null && !PickKey()) return;
+
+        var request = AdminRequestInput.Text;
+        var operatorName = OperatorInput.Text;
+        OperatorInput.IsReadOnly = AdminRequestInput.IsReadOnly = true;
+        SetBusy(true);
+        try
+        {
+            var key = await File.ReadAllTextAsync(_keyPath!);
+            AdminResponseText.Text = AtlasLicenseCodec.SignAdminResponse(request, operatorName, key);
+            CopyAdminButton.IsEnabled = true;
+        }
+        catch (Exception error)
+        {
+            IdeoDialog.Warning("Réponse Administrateur Idéo non générée", error.Message);
+        }
+        finally
+        {
+            OperatorInput.IsReadOnly = AdminRequestInput.IsReadOnly = false;
+            SetBusy(false);
+        }
+    }
+
+    private void CopyAdminResponse_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AdminResponseText.Text)) return;
+        try
+        {
+            Clipboard.SetText(AdminResponseText.Text);
+            StatusText.Text = "Réponse Idéo copiée.";
+        }
+        catch (System.Runtime.InteropServices.ExternalException error)
+        {
+            IdeoDialog.Warning("Copie de la réponse impossible", error.Message);
+        }
+    }
+
     private async void CopyCode_Click(object sender, RoutedEventArgs e)
     {
         if (_busy || !_canAdminister || Licenses.SelectedItem is not NexusAtlasRight right) return;
         SetBusy(true);
         try
         {
-            Clipboard.SetText(await ReadVerifiedCodeAsync(right));
+            var code = await ReadVerifiedCodeAsync(right);
+            GeneratedLicenseText.Text = code;
+            Clipboard.SetText(code);
             StatusText.Text = "Code Atlas copié.";
         }
         catch (Exception error)

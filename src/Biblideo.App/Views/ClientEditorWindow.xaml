@@ -15,8 +15,26 @@
                     <TextBlock Text="NOM DU CLIENT" Style="{StaticResource EyebrowText}"/><TextBox x:Name="NameText" Margin="0,7,0,18" TextChanged="FormChanged"/>
                     <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <StackPanel><TextBlock Text="VERSION DE BIBLIOTHÈQUE" Style="{StaticResource EyebrowText}"/><ComboBox x:Name="VariantCombo" Margin="0,7,0,0" SelectionChanged="FormChanged"><ComboBoxItem Content="SC · Sans chant" Tag="SC"/><ComboBoxItem Content="EP · Entité panneau" Tag="EP"/><ComboBoxItem Content="SC + EP" Tag="SC_EP"/></ComboBox></StackPanel>
-                        <StackPanel Grid.Column="2"><TextBlock Text="ABONNEMENT AUX MISES À JOUR" Style="{StaticResource EyebrowText}"/><ToggleButton x:Name="SubscriptionToggle" Style="{StaticResource SwitchToggle}" Margin="0,11,0,0" Click="FormChanged" HorizontalAlignment="Left"/><TextBlock x:Name="SubscriptionLabel" Margin="66,-26,0,0" VerticalAlignment="Center"/></StackPanel>
+                        <StackPanel Grid.Column="2"><TextBlock Text="MISES À JOUR BIBLIDÉO" Style="{StaticResource EyebrowText}"/><ToggleButton x:Name="SubscriptionToggle" Style="{StaticResource SwitchToggle}" Margin="0,11,0,0" Click="FormChanged" HorizontalAlignment="Left"/><TextBlock x:Name="SubscriptionLabel" Margin="66,-26,0,0" VerticalAlignment="Center"/></StackPanel>
                     </Grid>
+                    <Border x:Name="AtlasPanel" Visibility="Collapsed" Background="{StaticResource FieldBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9" Padding="14,11" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="{Binding AtlasStatus}" FontWeight="SemiBold"/>
+                            <ItemsControl ItemsSource="{Binding AtlasRights}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
+                                            <Run Text="{Binding DeviceId, Mode=OneWay}"/><Run Text=" · "/>
+                                            <Run Text="{Binding Offer, Mode=OneWay}"/><Run Text=" · "/>
+                                            <Run Text="{Binding ValidUntil, Mode=OneWay, StringFormat=dd/MM/yyyy}"/><Run Text=" · "/>
+                                            <Run Text="{Binding Status, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                     <TextBlock Text="ADRESSES MAIL LIÉES AU CLIENT" Style="{StaticResource EyebrowText}"/>
                     <TextBlock Text="Une adresse par ligne, ou séparées par un point-virgule." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,7"/>
                     <TextBox x:Name="EmailsText" Height="104" AcceptsReturn="True" VerticalContentAlignment="Top" TextWrapping="Wrap" TextChanged="FormChanged"/>

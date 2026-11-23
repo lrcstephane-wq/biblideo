@@ -235,7 +235,7 @@ public sealed partial class ClientManagementService
             var variant = match.Groups["variant"].Value.ToUpperInvariant();
             if (variant == "SC") sc = MaxPeriod(sc, period);
             else if (variant == "EP") ep = MaxPeriod(ep, period);
-            else if (variant is "SC+EP" or "EP+SC")
+            else if (variant is "SC+EP" or "EP+SC" or "SC_EP" or "EP_SC")
             {
                 sc = MaxPeriod(sc, period);
                 ep = MaxPeriod(ep, period);
@@ -266,7 +266,7 @@ public sealed partial class ClientManagementService
             throw new InvalidOperationException("L’opération a été bloquée car le dossier n’est pas un client direct de la racine configurée.");
     }
 
-    [GeneratedRegex(@"^(?<period>\d{4})(?:_(?<variant>SC\+EP|EP\+SC|SC|EP))?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?<period>\d{4})(?:_(?<variant>SC[+_]EP|EP[+_]SC|SC|EP))?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex MonthlyPackageRegex();
 }
 

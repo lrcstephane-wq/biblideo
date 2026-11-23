@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Biblideo.Core.Models;
+using Biblideo.App.ViewModels;
 using Biblideo.Core.Services;
 
 namespace Biblideo.App.Views;
@@ -14,8 +15,9 @@ public partial class ClientEditorWindow : Window
 
     public ClientDraft? Draft { get; private set; }
 
-    public ClientEditorWindow(string marker, ClientRecord? existing = null)
+    public ClientEditorWindow(string marker, ClientRowViewModel? row = null)
     {
+        var existing = row?.Client;
         _marker = marker;
         _editing = existing is not null;
         InitializeComponent();
@@ -32,6 +34,11 @@ public partial class ClientEditorWindow : Window
             SaveButton.Content = "Enregistrer";
             NameText.Text = existing.BaseName.Replace('_', ' ');
             EmailsText.Text = string.Join(Environment.NewLine, existing.Emails);
+        }
+        if (row is not null)
+        {
+            AtlasPanel.DataContext = row;
+            AtlasPanel.Visibility = Visibility.Visible;
         }
         UpdatePreview();
     }

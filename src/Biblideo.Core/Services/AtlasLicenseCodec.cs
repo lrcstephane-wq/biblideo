@@ -53,6 +53,40 @@ public static partial class AtlasLicenseCodec
             (data.Features ?? []).Any(feature => string.Equals(feature?.Trim(), "creator", StringComparison.OrdinalIgnoreCase)));
     }
 
+    // Protocole IdeoAdminAccessService du dépôt Atlas (ae70d12).
+    public static string SignAdminResponse(string requestCode, string operatorName, string privateKey,
+        DateTimeOffset? now = null, string? publicKey = null)
+    {
+        var name = operatorName.Trim();
+        if (name.Length is < 1 or > 120)
+            throw new ArgumentException("Renseigne le nom de l’opérateur Idéo (120 caractères au maximum).");
+        if (requestCode.Length > 8192 || requestCode.Trim().Split('.') is not ["ATLREQ1", var encodedRequest])
+            throw new FormatException("Colle la demande d’accès affichée par Atlas.");
+
+        var request = JsonSerializer.Deserialize<AdminRequest>(Decode(encodedRequest), JsonOptions);
+        if (request is null || string.IsNullOrWhiteSpace(request.DeviceId) || string.IsNullOrWhiteSpace(request.Nonce))
+            throw new FormatException("La demande d’accès Atlas est incomplète.");
+        _ = NormalizeDevice(request.DeviceId);
+        var current = (now ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        if (request.CreatedUtc > current.AddMinutes(1) || current - request.CreatedUtc > TimeSpan.FromMinutes(15))
+            throw new InvalidOperationException("La demande a expiré. Génère une nouvelle demande dans Atlas.");
+
+        var payload = JsonSerializer.SerializeToUtf8Bytes(new AdminResponse("ideo-admin-access", request.DeviceId,
+            request.Nonce, name, Guid.NewGuid().ToString("N"), current.AddMinutes(5)));
+        using var signer = ECDsa.Create();
+        signer.ImportFromPem(privateKey);
+        var signature = signer.SignData(payload, HashAlgorithmName.SHA256);
+        using var verifier = ECDsa.Create();
+        verifier.ImportFromPem(publicKey ?? PublicKey);
+        if (!verifier.VerifyData(payload, signature, HashAlgorithmName.SHA256))
+            throw new CryptographicException("La clé Idéo ne correspond pas à la clé publique Atlas.");
+
+        return $"ATLADM1.{Encode(payload)}.{Encode(signature)}";
+    }
+
+    private sealed record AdminRequest(string DeviceId, string Nonce, DateTimeOffset CreatedUtc);
+    private sealed record AdminResponse(string Purpose, string DeviceId, string Nonce, string OperatorName, string TokenId, DateTimeOffset ExpiresUtc);
+
     private static string Encode(byte[] data) => Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     private static byte[] Decode(string data) => Convert.FromBase64String(
         data.Replace('-', '+').Replace('_', '/').PadRight((data.Length + 3) / 4 * 4, '='));
