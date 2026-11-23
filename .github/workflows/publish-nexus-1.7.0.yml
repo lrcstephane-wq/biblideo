@@ -1,0 +1,45 @@
+name: Publication Idéo Nexus 1.7.0
+
+on:
+  push:
+    branches: ["codex/publish-nexus-1.7.0"]
+    paths: [".github/workflows/publish-nexus-1.7.0.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-nexus-1.7.0
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le code de la version
+        uses: actions/checkout@v4
+        with:
+          ref: "942bd1424bc6c602c9b2e18f068a26d98abbc51e"
+          persist-credentials: false
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Vérifier la solution et le registre
+        run: |
+          dotnet build Biblideo.sln -c Release
+          dotnet run --project tests/Biblideo.Core.SmokeTests -c Release --no-build
+
+      - name: Compiler l’exécutable Windows
+        run: dotnet publish src/Biblideo.App -c Release -r win-x64 --self-contained true -p:NexusPreview=false -p:Version=1.7.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish
+
+      - name: Publier Idéo Nexus
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          $binary = Join-Path $PWD 'publish/Biblideo.exe'
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'Biblideo.exe manquant.' }
+          gh release create v1.7.0 "$binary" --target "942bd1424bc6c602c9b2e18f068a26d98abbc51e" --latest --title "Idéo Nexus 1.7.0" --notes "Idéo Nexus reprend la configuration Biblidéo existante. Le registre partagé se configure dans Paramètres avec une racine NAS et sa copie cloud en lecture seule. Les licences Atlas restent signées avec la clé Idéo locale."
