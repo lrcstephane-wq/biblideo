@@ -13,6 +13,41 @@ internal sealed class NexusFileRegistry(string root, bool readOnly, string? publ
 
     private string Folder => Path.Combine(root, DirectoryName);
     private string RegistryPath => Path.Combine(Folder, RegistryName);
+    private string BiblideoUsagePath => Path.Combine(Folder, "suivi-licences-biblideo.json");
+
+    public async Task<ILookup<Guid, string>> ReadUnusedBiblideoKeysAsync() => (await ReadBiblideoUsageAsync())
+        .GroupBy(entry => (entry.ClientId, entry.KeyId))
+        .Where(group => group.Last().IsUnused)
+        .ToLookup(group => group.Key.ClientId, group => group.Key.KeyId);
+
+    public Task SetBiblideoUsageAsync(Guid clientId, string keyId, bool isUnused) =>
+        MutateAsync(BiblideoUsagePath, ReadBiblideoUsageAsync, events =>
+        {
+            if (clientId == Guid.Empty || keyId.Length != 64 || !keyId.All(Uri.IsHexDigit))
+                throw new InvalidOperationException("L’identifiant de licence Biblidéo est invalide.");
+
+            var previous = events.LastOrDefault(entry => entry.ClientId == clientId && entry.KeyId == keyId);
+            var current = previous?.IsUnused == true;
+            if (current == isUnused) return null;
+
+            events.Add(new(clientId, keyId, isUnused, DateTimeOffset.UtcNow, Environment.UserName));
+            return events;
+        });
+
+    private async Task<List<BiblideoUsageEvent>> ReadBiblideoUsageAsync()
+    {
+        if (!Directory.Exists(root)) throw new DirectoryNotFoundException("La racine du registre Nexus est inaccessible.");
+        try
+        {
+            await using var source = new FileStream(BiblideoUsagePath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            return await JsonSerializer.DeserializeAsync<List<BiblideoUsageEvent>>(source, JsonOptions)
+                ?? throw new InvalidDataException("Le suivi des licences Biblidéo est illisible.");
+        }
+        catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return [];
+        }
+    }
 
     public async Task<NexusAtlasRight[]> ReadAtlasAsync() => (await ReadAsync()).Atlas
         .Select(entry => entry.Right).OrderBy(right => right.DeviceId, StringComparer.Ordinal).ToArray();
@@ -108,17 +143,25 @@ internal sealed class NexusFileRegistry(string root, bool readOnly, string? publ
         }
     }
 
-    private async Task MutateAsync(Func<RegistryFile, bool> change)
+    private Task MutateAsync(Func<RegistryFile, bool> change) =>
+        MutateAsync(RegistryPath, ReadAsync,
+            current => change(current) ? current with
+            {
+                SchemaVersion = 2, Revision = current.Revision + 1, UpdatedAtUtc = DateTimeOffset.UtcNow
+            } : null,
+            current => { if (current.SchemaVersion == 1) PreserveLegacyFile(); });
+
+    private async Task MutateAsync<T>(string path, Func<Task<T>> read, Func<T, T?> change, Action<T>? beforeReplace = null)
+        where T : class
     {
         if (readOnly) throw new InvalidOperationException("La copie cloud s’ouvre en lecture seule.");
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException("La racine réseau du registre Nexus est inaccessible.");
         Directory.CreateDirectory(Folder);
 
         await using var lease = await AcquireAsync();
-        var current = await ReadAsync();
-        if (!change(current)) return;
-
-        var next = current with { SchemaVersion = 2, Revision = current.Revision + 1, UpdatedAtUtc = DateTimeOffset.UtcNow };
+        var current = await read();
+        var next = change(current);
+        if (next is null) return;
         var temp = Path.Combine(Folder, $"arrivage-{Guid.NewGuid():N}.tmp");
         try
         {
@@ -128,8 +171,8 @@ internal sealed class NexusFileRegistry(string root, bool readOnly, string? publ
                 await destination.FlushAsync();
             }
 
-            if (current.SchemaVersion == 1) PreserveLegacyFile();
-            File.Move(temp, RegistryPath, overwrite: true);
+            beforeReplace?.Invoke(current);
+            File.Move(temp, path, overwrite: true);
         }
         finally
         {
@@ -172,5 +215,6 @@ internal sealed class NexusFileRegistry(string root, bool readOnly, string? publ
     // La version 1 contenait aussi une liste de clients. Les licences et événements restent compatibles.
     private sealed record RegistryFile(int SchemaVersion, long Revision, DateTimeOffset UpdatedAtUtc,
         List<StoredAtlasRight> Atlas, List<NexusAtlasEvent> Events);
+    private sealed record BiblideoUsageEvent(Guid ClientId, string KeyId, bool IsUnused, DateTimeOffset RecordedAtUtc, string Operator);
     private sealed record StoredAtlasRight(NexusAtlasRight Right, string Code);
 }

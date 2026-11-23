@@ -20,6 +20,8 @@ public sealed class ClientLicenseRowViewModel
     public string ExpiryDisplay => Summary.ExpiryDate?.ToString("dd/MM/yyyy") ?? "Aucune échéance";
     public string DaysDisplay => Summary.DaysRemaining switch
     {
+        null when Summary.State == ClientLicenseState.Unused => "Aucune échéance suivie",
+        null when Summary.State == ClientLicenseState.OffSubscription => "Aucune clé suivie",
         null => Summary.State == ClientLicenseState.Missing ? "Pas de licence" : "À vérifier",
         < 0 => $"Expirée depuis {-Summary.DaysRemaining.Value} j",
         0 => "Expire aujourd’hui",
@@ -32,6 +34,7 @@ public sealed class ClientLicenseRowViewModel
         ClientLicenseState.Expired => "Expirée",
         ClientLicenseState.Missing => "Pas de licence",
         ClientLicenseState.OffSubscription => "Hors mise à jour",
+        ClientLicenseState.Unused => "Clés inutilisées",
         _ => "À vérifier"
     };
     public string ValidLicenseDisplay => Summary.ValidLicenseCount <= 1
@@ -48,7 +51,7 @@ public sealed class ClientLicenseRowViewModel
         ClientLicenseState.Valid => "#56C99B",
         ClientLicenseState.RenewSoon => "#D89B54",
         ClientLicenseState.Expired => "#EF7777",
-        ClientLicenseState.OffSubscription => "#748399",
+        ClientLicenseState.OffSubscription or ClientLicenseState.Unused => "#748399",
         ClientLicenseState.Unreadable => "#C68BE3",
         _ => "#7FB4EF"
     };

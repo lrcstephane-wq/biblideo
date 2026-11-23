@@ -1,3 +1,5 @@
+using System.IO;
+using System.Text.Json;
 using Biblideo.Core.Models;
 
 namespace Biblideo.App.Services;
@@ -13,6 +15,8 @@ public sealed record NexusAtlasRight(string Id, Guid ClientId, string Customer, 
 
 internal sealed record NexusAtlasEvent(string Operation, DateTimeOffset RecordedAtUtc, NexusAtlasRight? Previous, NexusAtlasRight Current);
 
+internal sealed record NexusBiblideoUsage(ILookup<Guid, string> UnusedKeys, bool CanEdit, string? Notice);
+
 internal static class NexusRegistryClient
 {
     public static NexusRegistryLocation Location => NexusRegistryLocation.Load();
@@ -22,7 +26,37 @@ internal static class NexusRegistryClient
         var location = Location;
         return location.ActiveRoot is { } root
             ? new NexusFileRegistry(root, location.UseCloud)
-            : throw new InvalidOperationException("Renseigne l’emplacement du registre Atlas dans Paramètres.");
+            : throw new InvalidOperationException("Renseigne l’emplacement du registre Nexus dans Paramètres.");
+    }
+
+    public static async Task<NexusBiblideoUsage> LoadBiblideoUsageAsync()
+    {
+        try
+        {
+            var location = Location;
+            if (location.ActiveRoot is { } root)
+            {
+                var unused = await new NexusFileRegistry(root, location.UseCloud).ReadUnusedBiblideoKeysAsync();
+                return new(unused, !location.UseCloud, location.UseCloud ? "Copie cloud · lecture seule" : null);
+            }
+            return EmptyBiblideoUsage("Configure le registre Nexus pour modifier l’utilisation des clés.");
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or JsonException)
+        {
+            return EmptyBiblideoUsage("Suivi partagé indisponible · les clés inutilisées ne peuvent pas être identifiées.");
+        }
+    }
+
+    private static NexusBiblideoUsage EmptyBiblideoUsage(string notice) =>
+        new(Array.Empty<string>().ToLookup(_ => Guid.Empty), false, notice);
+
+    public static async Task SetBiblideoUsageAsync(ClientModuleContext context, Guid clientId, string keyId, bool isUnused)
+    {
+        var registry = Open();
+        var customers = await BiblideoClientDirectory.ReadAsync(context);
+        if (!customers.Any(customer => customer.Id == clientId))
+            throw new InvalidOperationException("La fiche client a changé. Actualise les clients puis réessaie.");
+        await registry.SetBiblideoUsageAsync(clientId, keyId, isUnused);
     }
 
     public static Task<NexusAtlasRight[]> LoadAtlasAsync() => Open().ReadAtlasAsync();

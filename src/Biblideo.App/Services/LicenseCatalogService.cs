@@ -20,7 +20,7 @@ public sealed class LicenseCatalogService
         foreach (var path in distinctPaths)
         {
             var info = new FileInfo(path);
-            if (cachedByPath.TryGetValue(path, out var cached) && string.IsNullOrWhiteSpace(cached.Error) && cached.Length == info.Length && cached.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
+            if (cachedByPath.TryGetValue(path, out var cached) && cached.Licenses is not null && string.IsNullOrWhiteSpace(cached.Error) && cached.Length == info.Length && cached.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
             {
                 results.Add(ToMessage(cached));
             }
@@ -43,6 +43,7 @@ public sealed class LicenseCatalogService
                     Subject = message.Subject,
                     Recipients = message.Recipients.ToList(),
                     ExpiryDate = message.ExpiryDate,
+                    Licenses = message.Licenses.ToList(),
                     Error = message.Error
                 };
             }).ToArray();
@@ -67,13 +68,14 @@ public sealed class LicenseCatalogService
         Subject = entry.Subject,
         Recipients = entry.Recipients,
         ExpiryDate = entry.ExpiryDate,
+        Licenses = entry.Licenses ?? [],
         Error = entry.Error
     };
 
     private static async Task<LicenseIndex> LoadAsync(string path, CancellationToken cancellationToken)
     {
         if (!File.Exists(path)) return new LicenseIndex();
-        await using var stream = File.OpenRead(path);
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         return await JsonSerializer.DeserializeAsync<LicenseIndex>(stream, JsonOptions, cancellationToken) ?? new LicenseIndex();
     }
 
@@ -82,8 +84,15 @@ public sealed class LicenseCatalogService
         var directory = Path.GetDirectoryName(path) ?? throw new InvalidOperationException("Chemin de l’index licences invalide.");
         Directory.CreateDirectory(directory);
         var temporary = path + $".{Environment.MachineName}.{Guid.NewGuid():N}.tmp";
-        await using (var stream = File.Create(temporary))
-            await JsonSerializer.SerializeAsync(stream, index, JsonOptions, cancellationToken);
-        File.Move(temporary, path, true);
+        try
+        {
+            await using (var stream = File.Create(temporary))
+                await JsonSerializer.SerializeAsync(stream, index, JsonOptions, cancellationToken);
+            File.Move(temporary, path, true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
     }
 }

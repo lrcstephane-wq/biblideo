@@ -154,6 +154,37 @@ try
           && Biblideo.App.ViewModels.ClientRowViewModel.GetAtlasStatus(null, today).Contains("Indisponible"),
         "La fiche client doit distinguer licence active, expirée, absente et registre indisponible.");
 
+    var biblideoKey = LicenseManagementService.ParseLicenses("key=shared-test-key, date=31/12/2027").Single();
+    var otherBiblideoKey = LicenseManagementService.ParseLicenses("key=another-test-key, date=31/12/2027").Single();
+    await Task.WhenAll(
+        nasRegistry.SetBiblideoUsageAsync(customer.Id, biblideoKey.KeyId, true),
+        secondPost.SetBiblideoUsageAsync(customer.Id, otherBiblideoKey.KeyId, true));
+    var markedKeys = await secondPost.ReadUnusedBiblideoKeysAsync();
+    Check(markedKeys[customer.Id].Count() == 2 && !markedKeys[directoryClients[1].Id].Any(),
+        "Les deux postes voient le statut par clé et par client sans perdre les modifications simultanées.");
+    var sharedUsagePath = Path.Combine(nasRoot, NexusFileRegistry.DirectoryName, "suivi-licences-biblideo.json");
+    var copiedUsagePath = Path.Combine(cloudRoot, NexusFileRegistry.DirectoryName, "suivi-licences-biblideo.json");
+    File.Copy(sharedUsagePath, copiedUsagePath);
+    var readOnlyUsage = await cloudRegistry.ReadUnusedBiblideoKeysAsync();
+    var cloudChangeRejected = false;
+    try
+    {
+        await cloudRegistry.SetBiblideoUsageAsync(customer.Id, biblideoKey.KeyId, false);
+    }
+    catch (InvalidOperationException)
+    {
+        cloudChangeRejected = true;
+    }
+    Check(cloudChangeRejected && readOnlyUsage[customer.Id].Count() == 2,
+        "La copie cloud restitue les statuts Biblidéo sans autoriser de modification.");
+    await secondPost.SetBiblideoUsageAsync(customer.Id, biblideoKey.KeyId, false);
+    var resumedKeys = await nasRegistry.ReadUnusedBiblideoKeysAsync();
+    var usageJson = await File.ReadAllTextAsync(sharedUsagePath);
+    using var usageHistory = JsonDocument.Parse(usageJson);
+    Check(resumedKeys[customer.Id].Single() == otherBiblideoKey.KeyId
+          && usageHistory.RootElement.GetArrayLength() == 3 && !usageJson.Contains("shared-test-key", StringComparison.Ordinal),
+        "La remise en suivi doit conserver les événements sans écrire la clé complète.");
+
     async Task<bool> TryRemoveAtlasAsync(NexusFileRegistry registry, NexusAtlasRight[] selected, bool entireCompany)
     {
         try
@@ -461,31 +492,62 @@ try
         FullPath = restoredPath, Variant = ClientLibraryVariant.EP, IsSubscribed = true,
         Emails = ["licence@example.invalid"]
     };
-    var incoming = new ParsedLicenseMessage
+    ParsedLicenseMessage ArchivedMail(string path, string body, string? error = null) => new()
     {
-        FullPath = Path.Combine(testRoot, "license.msg"), FileName = "license.msg",
-        Recipients = ["LICENCE@EXAMPLE.INVALID"], ExpiryDate = new DateTime(2026, 9, 7)
+        FullPath = path, FileName = Path.GetFileName(path), Recipients = ["LICENCE@EXAMPLE.INVALID"],
+        ExpiryDate = LicenseManagementService.ParseExpiryDate(body), Licenses = LicenseManagementService.ParseLicenses(body), Error = error
     };
+    const string firstKey = "Alpha-Test-01";
+    const string bundledBody = "version=xx, module=2, KEY=Alpha-Test-01, date=07/09/2026\nkey=Second-Test-02, date=23/08/2026";
+    var incoming = ArchivedMail(Path.Combine(testRoot, "license.msg"), bundledBody);
+    var firstId = incoming.Licenses[0].KeyId;
+    var secondIdForBiblideo = incoming.Licenses[1].KeyId;
+    Check(incoming.Licenses.Count == 2 && firstId != secondIdForBiblideo
+          && LicenseManagementService.FindLicenseKey(bundledBody, firstId) == firstKey
+          && !incoming.Licenses[0].KeyLabel.Contains(firstKey, StringComparison.Ordinal),
+        "Un mail peut décrire plusieurs clés et l’index doit masquer la clé complète.");
+    Check(LicenseManagementService.ParseLicenses("key=old, date=inconnue\ndate=07/09/2026").Count == 0
+          && LicenseManagementService.ParseLicenses("key=\"test-code\", date=07/09/2026.").Count == 1,
+        "Une date invalide ne doit pas se rattacher à une clé précédente et la ponctuation finale doit être tolérée.");
     var match = licenseService.Match(incoming, [licenseClient]);
     Check(match.MatchStatus == LicenseMatchStatus.Matched && match.MatchedClient?.MetadataId == licenseClient.MetadataId,
         "Une adresse destinataire doit retrouver son client sans tenir compte de la casse.");
-    var summary = licenseService.Summarize(licenseClient,
-    [
+
+    var expired = ArchivedMail("expired.msg", "key=Third-Test-03, date=22/08/2026");
+    var expiredId = expired.Licenses.Single().KeyId;
+    var archives = new[]
+    {
         incoming,
-        new ParsedLicenseMessage { FullPath = "today.msg", FileName = "today.msg", ExpiryDate = new DateTime(2026, 8, 23) },
-        new ParsedLicenseMessage { FullPath = "old.msg", FileName = "old.msg", ExpiryDate = new DateTime(2026, 8, 22) },
-        new ParsedLicenseMessage { FullPath = "unknown.msg", FileName = "unknown.msg" },
-        new ParsedLicenseMessage { FullPath = "error.msg", FileName = "error.msg", ExpiryDate = new DateTime(2026, 9, 6), Error = "Lecture incomplète" }
-    ], new DateTime(2026, 8, 23, 16, 0, 0), 10);
-    Check(summary.ValidLicenseCount == 2 && summary.MessageCount == 5 && summary.UnreadableCount == 2,
-        "Le compteur doit inclure le jour d’échéance et exclure les licences expirées ou illisibles.");
-    Check(licenseService.Summarize(emptyClient, [incoming], new DateTime(2026, 8, 23), 10) is
-        { ValidLicenseCount: 1, State: ClientLicenseState.OffSubscription },
-        "Une licence valide doit rester comptée hors abonnement aux mises à jour.");
-    Check(licenseService.Summarize(licenseClient, [], new DateTime(2026, 8, 23), 10).ValidLicenseCount == 0,
+        ArchivedMail("renewed.msg", "key=Alpha-Test-01, date=08/09/2026"),
+        ArchivedMail("historical.msg", "key=Alpha-Test-01, date=21/08/2026"),
+        expired,
+        ArchivedMail("unknown.msg", "date=07/09/2026"),
+        ArchivedMail("error.msg", "key=Unreadable-Test-04, date=06/09/2026", "Lecture incomplète")
+    };
+    var referenceDate = new DateTime(2026, 8, 23, 16, 0, 0);
+    var summary = licenseService.Summarize(licenseClient, archives, referenceDate, 10);
+    Check(summary.Licenses.Count == 3 && summary.ValidLicenseCount == 2 && summary.MessageCount == 6
+          && summary.UnreadableCount == 2 && summary.State == ClientLicenseState.Expired
+          && summary.HasUpcomingRenewal && summary.ExpiryDate == referenceDate.Date.AddDays(-1),
+        "La synthèse doit compter chaque clé une fois, alerter sur les clés bientôt à échéance même avec une clé expirée et inclure le jour d’échéance.");
+    Check(summary.Licenses.Single(item => item.License.KeyId == firstId).License.ExpiryDate == new DateTime(2026, 9, 8),
+        "Les renouvellements d’une même clé doivent conserver son échéance la plus récente.");
+    var withoutExpired = licenseService.Summarize(licenseClient, archives, referenceDate, 10, [expiredId]);
+    Check(withoutExpired.State == ClientLicenseState.RenewSoon && withoutExpired.ExpiryDate == referenceDate.Date
+          && withoutExpired.Licenses.Single(item => item.License.KeyId == expiredId).IsUnused,
+        "Une clé expirée peut sortir des alertes tout en restant visible avec sa date.");
+    var onlyFirst = licenseService.Summarize(licenseClient, archives, referenceDate, 10, [expiredId, secondIdForBiblideo]);
+    Check(onlyFirst is { ValidLicenseCount: 1, HasUpcomingRenewal: false, State: ClientLicenseState.Valid }
+          && onlyFirst.ExpiryDate == new DateTime(2026, 9, 8),
+        "Une clé inutilisée ne doit modifier ni le compteur, ni l’alerte, ni l’échéance des clés en service.");
+    var noneInUse = licenseService.Summarize(licenseClient, [incoming], referenceDate, 10, [firstId, secondIdForBiblideo]);
+    Check(noneInUse is { ValidLicenseCount: 0, ExpiryDate: null, NeedsAttention: false, State: ClientLicenseState.Unused },
+        "Les clés inutilisées seules doivent rester consultables sans alerte d’absence de licence.");
+    Check(licenseService.Summarize(emptyClient, [incoming], referenceDate, 10) is
+        { ValidLicenseCount: 2, HasUpcomingRenewal: true },
+        "La validité des clés et leurs alertes restent indépendantes de l’abonnement aux mises à jour.");
+    Check(licenseService.Summarize(licenseClient, [], referenceDate, 10).ValidLicenseCount == 0,
         "Un client sans archive doit afficher zéro licence valide.");
-    Check(summary.ExpiryDate == new DateTime(2026, 9, 7) && summary.State == ClientLicenseState.Valid,
-        "Le suivi doit conserver l’échéance la plus éloignée parmi plusieurs licences.");
     File.WriteAllText(incoming.FullPath, "contenu msg de test");
     var licenseDestination = Path.Combine(restoredPath, "01_Licence_Biblideo");
     var move = licenseService.MoveVerified(incoming.FullPath, licenseDestination);

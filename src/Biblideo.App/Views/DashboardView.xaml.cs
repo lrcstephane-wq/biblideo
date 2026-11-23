@@ -69,6 +69,7 @@ public partial class DashboardView : UserControl
                         foreach (var path in Directory.EnumerateFiles(folder, "*.msg", SearchOption.TopDirectoryOnly)) pathOwners[path] = client;
                     }
                     var messages = await _catalogService.ReadAsync(pathOwners.Keys.ToArray(), _settings.GetEffectiveLicenseIndexPath(), updateIndex: false);
+                    var usage = await NexusRegistryClient.LoadBiblideoUsageAsync();
                     var byPath = messages.ToDictionary(message => message.FullPath, StringComparer.OrdinalIgnoreCase);
                     foreach (var client in scan.Clients)
                     {
@@ -78,9 +79,10 @@ public partial class DashboardView : UserControl
                             .Where(message => message is not null)
                             .Cast<ParsedLicenseMessage>()
                             .ToArray();
-                        var summary = _licenseService.Summarize(client, clientMessages, DateTime.Today, _settings.LicenseRenewalWarningDays);
-                        if (summary.State == ClientLicenseState.RenewSoon) renewCount++;
-                        if (summary.State is ClientLicenseState.Expired or ClientLicenseState.Missing or ClientLicenseState.Unreadable) licenseAttention++;
+                        var summary = _licenseService.Summarize(client, clientMessages, DateTime.Today,
+                            _settings.LicenseRenewalWarningDays, usage.UnusedKeys[client.MetadataId]);
+                        if (summary.HasUpcomingRenewal) renewCount++;
+                        if (summary.NeedsAttention) licenseAttention++;
                     }
                 }
                 catch (Exception exception)
@@ -92,8 +94,8 @@ public partial class DashboardView : UserControl
             var structureWarnings = scan.Clients.Count(client => !client.StructureIsValid);
             var emailWarnings = scan.Clients.Count(client => client.Emails.Count == 0);
             if (inboxPaths.Length > 0) priorities.Add(new DashboardPriority($"{inboxPaths.Length} licence(s) à distribuer", "La boîte d’arrivée attend son facteur numérique.", "#C68BE3", "Licenses", "Trier"));
-            if (renewCount > 0) priorities.Add(new DashboardPriority($"{renewCount} licence(s) bientôt à renouveler", $"Échéance dans les {_settings.LicenseRenewalWarningDays} prochains jours.", "#D89B54", "Licenses", "Voir"));
-            if (licenseAttention > 0) priorities.Add(new DashboardPriority($"{licenseAttention} licence(s) à vérifier", "Licence absente, expirée ou message illisible.", "#EF7777", "Licenses", "Contrôler"));
+            if (renewCount > 0) priorities.Add(new DashboardPriority($"{renewCount} client(s) avec une licence bientôt à renouveler", $"Échéance dans les {_settings.LicenseRenewalWarningDays} prochains jours.", "#D89B54", "Licenses", "Voir"));
+            if (licenseAttention > 0) priorities.Add(new DashboardPriority($"{licenseAttention} client(s) avec des licences à vérifier", "Licence absente, expirée ou message illisible.", "#EF7777", "Licenses", "Contrôler"));
             if (structureWarnings > 0) priorities.Add(new DashboardPriority($"{structureWarnings} structure(s) client à réparer", "Des sous-dossiers obligatoires sont manquants.", "#EF7777", "Clients", "Réparer"));
             if (emailWarnings > 0) priorities.Add(new DashboardPriority($"{emailWarnings} client(s) sans adresse", "Les futures licences auront besoin d’un destinataire connu.", "#7FB4EF", "Clients", "Compléter"));
             if (productCount > 0) priorities.Add(new DashboardPriority($"{productCount} package(s) produit en attente", "Prêts à rejoindre un prochain pack mensuel.", "#4D8BD4", "Product", "Ouvrir"));

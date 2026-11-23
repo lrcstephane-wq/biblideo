@@ -37,6 +37,11 @@ public partial class ClientsView : UserControl
         _uiPreferences = _uiPreferencesService.Load();
         InitializeComponent();
         DataContext = _visibleRows;
+        ClientBiblideoLicenses.Context = _settings;
+        ClientBiblideoLicenses.UsageChanged += async (_, _) =>
+        {
+            if (ClientsList.SelectedItem is ClientRowViewModel row) await LoadClientLicenseSummaryAsync(row.Client);
+        };
         StatusFilter.SelectedIndex = 0;
         VariantFilter.SelectedIndex = 0;
         ApplyClientView(_uiPreferences.ClientsUseCardView, persist: false);
@@ -73,40 +78,43 @@ public partial class ClientsView : UserControl
         ClientDetailsPanel.DataContext = row;
         ClientDetailsPanel.Visibility = Visibility.Visible;
         NoClientEmailText.Visibility = row.Client.Emails.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ClientLicenseExpiryText.Text = "Analyse…";
-        ClientLicenseStateText.Text = "Lecture des licences archivées";
         ClientHistoryList.ItemsSource = ReadClientHistory(row.Client.DisplayName);
         await LoadClientLicenseSummaryAsync(row.Client);
     }
 
     private async Task LoadClientLicenseSummaryAsync(ClientRecord client)
     {
+        ClientLicenseExpiryText.Text = "Analyse…";
+        ClientLicenseStateText.Text = "Lecture des licences archivées";
+        ClientBiblideoLicenses.ShowLoading("Analyse des mails archivés…");
         try
         {
             var folder = Path.Combine(client.FullPath, _appSettings.LicenseClientFolderName);
             var paths = Directory.Exists(folder)
                 ? Directory.EnumerateFiles(folder, "*.msg", SearchOption.TopDirectoryOnly).ToArray()
                 : [];
-            var messages = await _licenseCatalogService.ReadAsync(paths, _appSettings.GetEffectiveLicenseIndexPath());
-            var summary = _licenseManagementService.Summarize(client, messages, DateTime.Today, _appSettings.LicenseRenewalWarningDays);
-            if (ClientDetailsPanel.DataContext is not ClientRowViewModel current || current.Client.MetadataId != client.MetadataId) return;
-            ClientLicenseExpiryText.Text = summary.ExpiryDate?.ToString("dd/MM/yyyy") ?? "Pas de licence";
-            ClientLicenseStateText.Text = summary.State switch
-            {
-                ClientLicenseState.Valid => $"Valide · {summary.DaysRemaining} jours restants",
-                ClientLicenseState.RenewSoon => $"À renouveler · {summary.DaysRemaining} jours restants",
-                ClientLicenseState.Expired => $"Expirée depuis {-summary.DaysRemaining} jours",
-                ClientLicenseState.OffSubscription => "Hors mise à jour",
-                ClientLicenseState.Unreadable => "Échéance à vérifier",
-                _ => "Aucun mail archivé"
-            };
+            var usage = await NexusRegistryClient.LoadBiblideoUsageAsync();
+            var messages = await _licenseCatalogService.ReadAsync(paths, _appSettings.GetEffectiveLicenseIndexPath(), updateIndex: usage.CanEdit);
+            var summary = _licenseManagementService.Summarize(client, messages, DateTime.Today,
+                _appSettings.LicenseRenewalWarningDays, usage.UnusedKeys[client.MetadataId]);
+            if (!IsCurrentClient(client)) return;
+
+            var row = new ClientLicenseRowViewModel(summary);
+            ClientLicenseExpiryText.Text = summary.ExpiryDate?.ToString("dd/MM/yyyy") ?? "—";
+            ClientLicenseStateText.Text = summary.ExpiryDate.HasValue ? $"{row.StateDisplay} · {row.DaysDisplay}" : row.StateDisplay;
+            ClientBiblideoLicenses.Show(summary, usage);
         }
         catch (Exception exception)
         {
+            if (!IsCurrentClient(client)) return;
             ClientLicenseExpiryText.Text = "Indisponible";
-            ClientLicenseStateText.Text = exception.Message;
+            ClientLicenseStateText.Text = "Échéance indisponible";
+            ClientBiblideoLicenses.ShowLoading(exception.Message);
         }
     }
+
+    private bool IsCurrentClient(ClientRecord client) =>
+        ClientsList.SelectedItem is ClientRowViewModel row && ReferenceEquals(row.Client, client);
 
     private IReadOnlyList<ClientHistoryDisplay> ReadClientHistory(string clientName)
     {

@@ -28,6 +28,7 @@ public partial class LicensesView : UserControl
     private LicenseInboxRowViewModel? _selectedInboxRow;
     private ClientLicenseRowViewModel? _selectedTrackingRow;
     private bool _loading;
+    private NexusBiblideoUsage? _biblideoUsage;
 
     public LicensesView(AppSettings settings, ClientModuleContext clientSettings)
     {
@@ -36,6 +37,8 @@ public partial class LicensesView : UserControl
         _uiPreferences = _uiPreferencesService.Load();
         InitializeComponent();
         DataContext = this;
+        TrackingBiblideoLicenses.Context = _clientSettings;
+        TrackingBiblideoLicenses.UsageChanged += async (_, _) => await LoadAsync();
         TrackingStatusFilter.SelectedIndex = 0;
         ApplyTrackingView(_uiPreferences.LicenseTrackingUseCardView, persist: false);
         Loaded += async (_, _) => await LoadAsync();
@@ -69,7 +72,9 @@ public partial class LicensesView : UserControl
             }
 
             var allPaths = inboxPaths.Concat(clientPathOwners.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            var messages = await _catalogService.ReadAsync(allPaths, _settings.GetEffectiveLicenseIndexPath());
+            var usage = await NexusRegistryClient.LoadBiblideoUsageAsync();
+            _biblideoUsage = usage;
+            var messages = await _catalogService.ReadAsync(allPaths, _settings.GetEffectiveLicenseIndexPath(), updateIndex: usage.CanEdit);
             var byPath = messages.ToDictionary(message => message.FullPath, StringComparer.OrdinalIgnoreCase);
 
             _allInboxRows.Clear();
@@ -89,7 +94,9 @@ public partial class LicensesView : UserControl
                     .Where(message => message is not null)
                     .Cast<ParsedLicenseMessage>()
                     .ToArray();
-                _allTrackingRows.Add(new ClientLicenseRowViewModel(_licenseService.Summarize(client, clientMessages, DateTime.Today, _settings.LicenseRenewalWarningDays)));
+                var summary = _licenseService.Summarize(client, clientMessages, DateTime.Today,
+                    _settings.LicenseRenewalWarningDays, usage.UnusedKeys[client.MetadataId]);
+                _allTrackingRows.Add(new ClientLicenseRowViewModel(summary));
             }
 
             RefreshInbox();
@@ -124,10 +131,18 @@ public partial class LicensesView : UserControl
         var filtered = _allTrackingRows.Where(row =>
             (string.IsNullOrWhiteSpace(search) || row.ClientName.Contains(search, StringComparison.CurrentCultureIgnoreCase) || row.Client.Emails.Any(email => email.Contains(search, StringComparison.OrdinalIgnoreCase))) &&
             (state == "All" ||
-             state == "Attention" && (row.Summary.State == ClientLicenseState.Expired || row.Summary.State == ClientLicenseState.Missing || row.Summary.State == ClientLicenseState.Unreadable) ||
+             state == "Attention" && (row.Summary.NeedsAttention || row.Summary.HasUpcomingRenewal) ||
+             state == "RenewSoon" && row.Summary.HasUpcomingRenewal ||
+             state == "OffSubscription" && !row.Client.IsSubscribed ||
              row.Summary.State.ToString() == state));
+        var selectedId = (TrackingList.SelectedItem as ClientLicenseRowViewModel)?.Client.MetadataId;
         TrackingRows.Clear();
         foreach (var row in filtered) TrackingRows.Add(row);
+        if (selectedId.HasValue)
+        {
+            TrackingList.SelectedItem = TrackingRows.FirstOrDefault(row => row.Client.MetadataId == selectedId);
+            if (TrackingList.SelectedItem is null) CloseLicenseDetails();
+        }
         TrackingEmptyText.Visibility = TrackingRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -135,8 +150,8 @@ public partial class LicensesView : UserControl
     {
         var matched = _allInboxRows.Count(row => row.CanDispatch);
         var unidentified = _allInboxRows.Count - matched;
-        var renew = _allTrackingRows.Count(row => row.Summary.State == ClientLicenseState.RenewSoon);
-        var attention = _allTrackingRows.Count(row => row.Summary.State is ClientLicenseState.Expired or ClientLicenseState.Missing or ClientLicenseState.Unreadable) + unidentified;
+        var renew = _allTrackingRows.Count(row => row.Summary.HasUpcomingRenewal);
+        var attention = _allTrackingRows.Count(row => row.Summary.NeedsAttention) + unidentified;
         InboxCountText.Text = _allInboxRows.Count.ToString("N0");
         MatchedCountText.Text = matched.ToString("N0");
         UnmatchedCountText.Text = unidentified.ToString("N0");
@@ -187,6 +202,8 @@ public partial class LicensesView : UserControl
         LicenseDetailClient.Text = row.ClientDisplay;
         LicenseDetailRecipients.Text = row.Recipients;
         LicenseDetailDescription.Text = row.Subject;
+        TrackingBiblideoLicenses.Visibility = Visibility.Collapsed;
+        TrackingBiblideoLicenses.ShowLoading(string.Empty);
         LicenseDetailAssignButton.Visibility = Visibility.Visible;
         LicenseDetailTrashButton.Visibility = Visibility.Visible;
         LicenseDetailPlannerButton.Visibility = Visibility.Collapsed;
@@ -206,10 +223,15 @@ public partial class LicensesView : UserControl
         LicenseDetailExpiry.Text = row.ExpiryDisplay;
         LicenseDetailClient.Text = $"{row.ClientName} · {row.Variant}";
         LicenseDetailRecipients.Text = row.Client.Emails.Count == 0 ? "Aucune adresse renseignée" : string.Join("\n", row.Client.Emails);
-        LicenseDetailDescription.Text = $"{row.ValidLicenseDisplay} · {row.MessageDisplay}. La date la plus lointaine est utilisée lorsqu’un client possède plusieurs licences.";
+        LicenseDetailDescription.Text = $"{row.MessageDisplay}. L’échéance affichée est la première des clés suivies, échues comprises.";
+        if (_biblideoUsage is { } usage)
+        {
+            TrackingBiblideoLicenses.Show(row.Summary, usage);
+            TrackingBiblideoLicenses.Visibility = Visibility.Visible;
+        }
         LicenseDetailAssignButton.Visibility = Visibility.Collapsed;
         LicenseDetailTrashButton.Visibility = Visibility.Collapsed;
-        LicenseDetailPlannerButton.Visibility = row.Summary.State is ClientLicenseState.RenewSoon or ClientLicenseState.Expired ? Visibility.Visible : Visibility.Collapsed;
+        LicenseDetailPlannerButton.Visibility = row.Summary.HasUpcomingRenewal || row.Summary.State == ClientLicenseState.Expired ? Visibility.Visible : Visibility.Collapsed;
         LicenseDetailsPanel.Visibility = Visibility.Visible;
     }
 

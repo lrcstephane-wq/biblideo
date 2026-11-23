@@ -1,0 +1,34 @@
+<UserControl x:Class="Biblideo.App.Controls.BiblideoLicenseDetails"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="10" Padding="14">
+        <StackPanel>
+            <TextBlock Text="LICENCES BIBLIDÉO" Style="{StaticResource EyebrowText}"/>
+            <TextBlock x:Name="CountText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,5,0,0"/>
+            <TextBlock x:Name="NoticeText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="11"/>
+            <ItemsControl x:Name="KeysList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,9,0,0" Padding="0,8,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,8,0">
+                                    <Button Content="{Binding Detail.License.KeyLabel}" Tag="{Binding Detail}" Click="RevealKey_Click"
+                                            HorizontalAlignment="Left" Padding="6,2" FontFamily="Consolas"
+                                            ToolTip="Afficher la clé complète depuis le mail archivé"/>
+                                    <TextBlock Text="{Binding DateLabel}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontSize="11" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="{Binding ActionLabel}" IsEnabled="{Binding CanEdit}" Tag="{Binding Detail}"
+                                        Click="SetUsage_Click" Padding="8,5" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</UserControl>

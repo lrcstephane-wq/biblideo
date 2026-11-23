@@ -7,7 +7,16 @@ namespace Biblideo.App.Services;
 
 public sealed class OutlookMsgReader
 {
-    public Task<IReadOnlyList<ParsedLicenseMessage>> ReadManyAsync(IReadOnlyList<string> paths)
+    public Task<IReadOnlyList<ParsedLicenseMessage>> ReadManyAsync(IReadOnlyList<string> paths) => ReadAsync(paths, null);
+
+    public async Task<string?> ReadKeyAsync(string path, string keyId)
+    {
+        string? key = null;
+        var result = await ReadAsync([path], body => key = LicenseManagementService.FindLicenseKey(body, keyId));
+        return result[0].Error is { } error ? throw new IOException(error) : key;
+    }
+
+    private static Task<IReadOnlyList<ParsedLicenseMessage>> ReadAsync(IReadOnlyList<string> paths, Action<string>? inspectBody)
     {
         var completion = new TaskCompletionSource<IReadOnlyList<ParsedLicenseMessage>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
@@ -25,7 +34,7 @@ public sealed class OutlookMsgReader
                 if (session is null) throw new InvalidOperationException("La session Outlook n’est pas accessible.");
 
                 foreach (var path in paths)
-                    results.Add(ReadOne(session, path));
+                    results.Add(ReadOne(session, path, inspectBody));
                 completion.TrySetResult(results);
             }
             catch (Exception exception)
@@ -49,7 +58,7 @@ public sealed class OutlookMsgReader
         return completion.Task;
     }
 
-    private static ParsedLicenseMessage ReadOne(object session, string path)
+    private static ParsedLicenseMessage ReadOne(object session, string path, Action<string>? inspectBody)
     {
         object? item = null;
         object? recipients = null;
@@ -62,13 +71,15 @@ public sealed class OutlookMsgReader
             var body = itemType.InvokeMember("Body", System.Reflection.BindingFlags.GetProperty, null, item, null)?.ToString() ?? string.Empty;
             recipients = itemType.InvokeMember("Recipients", System.Reflection.BindingFlags.GetProperty, null, item, null);
             var addresses = ReadRecipients(recipients);
+            inspectBody?.Invoke(body);
             return new ParsedLicenseMessage
             {
                 FullPath = path,
                 FileName = Path.GetFileName(path),
                 Subject = subject,
                 Recipients = addresses,
-                ExpiryDate = LicenseManagementService.ParseExpiryDate(body)
+                ExpiryDate = LicenseManagementService.ParseExpiryDate(body),
+                Licenses = LicenseManagementService.ParseLicenses(body)
             };
         }
         catch (Exception exception)

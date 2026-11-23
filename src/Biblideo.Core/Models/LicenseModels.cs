@@ -15,7 +15,8 @@ public enum ClientLicenseState
     Expired,
     Missing,
     OffSubscription,
-    Unreadable
+    Unreadable,
+    Unused
 }
 
 public sealed class ParsedLicenseMessage
@@ -26,7 +27,12 @@ public sealed class ParsedLicenseMessage
     public IReadOnlyList<string> Recipients { get; init; } = [];
     public DateTime? ExpiryDate { get; init; }
     public string? Error { get; init; }
+    public IReadOnlyList<ArchivedBiblideoLicense> Licenses { get; init; } = [];
 }
+
+public sealed record ArchivedBiblideoLicense(string KeyId, string KeyLabel, DateTime ExpiryDate);
+
+public sealed record BiblideoLicenseDetail(ArchivedBiblideoLicense License, string SourcePath, bool IsUnused);
 
 public sealed class LicenseInboxItem
 {
@@ -43,6 +49,9 @@ public sealed class ClientLicenseSummary
     public DateTime? ExpiryDate { get; init; }
     public int MessageCount { get; init; }
     public int ValidLicenseCount { get; init; }
+    public IReadOnlyList<BiblideoLicenseDetail> Licenses { get; init; } = [];
+    public bool HasUpcomingRenewal { get; init; }
+    public bool NeedsAttention => UnreadableCount > 0 || State is ClientLicenseState.Expired or ClientLicenseState.Missing or ClientLicenseState.Unreadable;
     public int UnreadableCount { get; init; }
     public required ClientLicenseState State { get; init; }
     public int? DaysRemaining { get; init; }
@@ -63,6 +72,7 @@ public sealed class LicenseIndexEntry
     public List<string> Recipients { get; set; } = [];
     public DateTime? ExpiryDate { get; set; }
     public string? Error { get; set; }
+    public List<ArchivedBiblideoLicense>? Licenses { get; set; }
 }
 
 public sealed class LicenseHistoryEntry

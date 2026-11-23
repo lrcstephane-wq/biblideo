@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Biblideo.Core.Models;
 
@@ -44,29 +46,77 @@ public sealed partial class LicenseManagementService
         };
     }
 
-    public ClientLicenseSummary Summarize(ClientRecord client, IReadOnlyList<ParsedLicenseMessage> messages, DateTime today, int warningDays)
-    {
-        var validDates = messages.Where(message => message.ExpiryDate.HasValue).Select(message => message.ExpiryDate!.Value.Date).ToArray();
-        var expiry = validDates.Length == 0 ? (DateTime?)null : validDates.Max();
-        var currentDate = today.Date;
-        var unreadable = messages.Count(message => !string.IsNullOrWhiteSpace(message.Error) || message.ExpiryDate is null);
-        var validCount = messages.Count(message =>
-            string.IsNullOrWhiteSpace(message.Error) && message.ExpiryDate is { } date && date.Date >= currentDate);
-        int? days = expiry.HasValue ? (expiry.Value - currentDate).Days : null;
-        var state = (client.IsSubscribed, days) switch
+    public static IReadOnlyList<ArchivedBiblideoLicense> ParseLicenses(string? body) =>
+        ReadLicenseFields(body).Select(field =>
         {
-            (false, _) => ClientLicenseState.OffSubscription,
-            (_, null) => messages.Count > 0 ? ClientLicenseState.Unreadable : ClientLicenseState.Missing,
-            (_, < 0) => ClientLicenseState.Expired,
-            (_, int remaining) when remaining <= warningDays => ClientLicenseState.RenewSoon,
-            _ => ClientLicenseState.Valid
+            var id = KeyFingerprint(field.Key);
+            var label = field.Key.Length >= 9 ? $"{field.Key[..3]}…{field.Key[^4..]}" : $"Réf. {id[..8]}";
+            return new ArchivedBiblideoLicense(id, label, field.ExpiryDate);
+        }).ToArray();
+
+    public static string? FindLicenseKey(string? body, string keyId) =>
+        ReadLicenseFields(body).FirstOrDefault(field => KeyFingerprint(field.Key) == keyId).Key;
+
+    private static string KeyFingerprint(string key) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+
+    private static IEnumerable<(string Key, DateTime ExpiryDate)> ReadLicenseFields(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) yield break;
+        string? key = null;
+        foreach (Match field in LicenseFieldRegex().Matches(body))
+        {
+            if (field.Groups["key"].Success)
+            {
+                key = field.Groups["key"].Length > 0 ? field.Groups["key"].Value : null;
+                continue;
+            }
+
+            if (key is not null && DateTime.TryParseExact(field.Groups["date"].Value, "dd/MM/yyyy",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out var expiry))
+                yield return (key, expiry);
+
+            key = null;
+        }
+    }
+
+    public ClientLicenseSummary Summarize(ClientRecord client, IReadOnlyList<ParsedLicenseMessage> messages, DateTime today,
+        int warningDays, IEnumerable<string>? unusedKeys = null)
+    {
+        var unused = unusedKeys?.ToHashSet(StringComparer.Ordinal);
+        var licenses = messages.Where(message => string.IsNullOrWhiteSpace(message.Error))
+            .SelectMany(message => message.Licenses.Select(license =>
+                new BiblideoLicenseDetail(license, message.FullPath, unused?.Contains(license.KeyId) == true)))
+            .GroupBy(detail => detail.License.KeyId, StringComparer.Ordinal)
+            .Select(group => group.MaxBy(detail => detail.License.ExpiryDate)!)
+            .OrderBy(detail => detail.IsUnused)
+            .ThenBy(detail => detail.License.ExpiryDate)
+            .ThenBy(detail => detail.License.KeyId, StringComparer.Ordinal)
+            .ToArray();
+        var active = licenses.Where(detail => !detail.IsUnused).ToArray();
+        var currentDate = today.Date;
+        var warningDate = currentDate.AddDays(Math.Clamp(warningDays, 0, (DateTime.MaxValue.Date - currentDate).Days));
+        var expiry = active.FirstOrDefault()?.License.ExpiryDate.Date;
+        var unreadable = messages.Count(message => !string.IsNullOrWhiteSpace(message.Error) || message.Licenses.Count == 0);
+        int? days = expiry.HasValue ? (expiry.Value - currentDate).Days : null;
+        var state = days switch
+        {
+            < 0 => ClientLicenseState.Expired,
+            int remaining when remaining <= warningDays => ClientLicenseState.RenewSoon,
+            int => ClientLicenseState.Valid,
+            _ when unreadable > 0 => ClientLicenseState.Unreadable,
+            _ when licenses.Length > 0 => ClientLicenseState.Unused,
+            _ when !client.IsSubscribed => ClientLicenseState.OffSubscription,
+            _ => ClientLicenseState.Missing
         };
         return new ClientLicenseSummary
         {
             Client = client,
             ExpiryDate = expiry,
             MessageCount = messages.Count,
-            ValidLicenseCount = validCount,
+            ValidLicenseCount = active.Count(detail => detail.License.ExpiryDate.Date >= currentDate),
+            Licenses = licenses,
+            HasUpcomingRenewal = warningDays >= 0 && active.Any(detail => detail.License.ExpiryDate.Date >= currentDate
+                && detail.License.ExpiryDate.Date <= warningDate),
             UnreadableCount = unreadable,
             State = state,
             DaysRemaining = days
@@ -130,4 +180,7 @@ public sealed partial class LicenseManagementService
 
     [GeneratedRegex(@"\bdate\s*=\s*(?<date>\d{2}/\d{2}/\d{4})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ExpiryDateRegex();
+
+    [GeneratedRegex(@"\bkey[^\S\r\n]*=[^\S\r\n]*[""']?(?<key>[^\s,;<>""']*)|\bdate[^\S\r\n]*=[^\S\r\n]*[""']?(?:(?<date>\d{2}/\d{2}/\d{4})\b|[^\s,;<>""']*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LicenseFieldRegex();
 }
