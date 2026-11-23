@@ -182,6 +182,13 @@ public partial class MainWindow : Window
         PageContent.Content = page.View;
     }
 
+    private void ConnectNexus_Click(object sender, RoutedEventArgs e)
+    {
+        new NexusConnectionWindow { Owner = this }.ShowDialog();
+        if (PageContent.Content is NexusCustomersView) NavigateTo("NexusCustomers");
+        if (PageContent.Content is AtlasLicensesView) NavigateTo("AtlasLicenses");
+    }
+
     private void OnSettingsSaved(AppSettings settings, ClientModuleSettings clientSettings)
     {
         _settings = settings;

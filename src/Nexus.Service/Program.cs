@@ -3,24 +3,49 @@ using Nexus.Service;
 
 var builder = WebApplication.CreateSlimBuilder();
 builder.Configuration.Sources.Clear();
-var port = Environment.GetEnvironmentVariable("IDEO_NEXUS_DEV_PORT") is { } configuredPort
-    ? int.Parse(configuredPort, System.Globalization.CultureInfo.InvariantCulture)
-    : 5078;
-// Cette instance de développement est accessible uniquement depuis le poste courant.
-builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
-
-var dataDirectory = Environment.GetEnvironmentVariable("IDEO_NEXUS_DEV_DIRECTORY")
-    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Ideo Solutions", "Nexus Development");
+var accessFile = Environment.GetEnvironmentVariable("IDEO_NEXUS_ACCESS_FILE");
+var shared = accessFile is not null;
+var access = shared ? SharedAccess.Load(accessFile!) : null;
+var port = int.Parse(Environment.GetEnvironmentVariable(shared ? "IDEO_NEXUS_PORT" : "IDEO_NEXUS_DEV_PORT")
+    ?? (shared ? "7443" : "5078"), System.Globalization.CultureInfo.InvariantCulture);
+var dataDirectory = shared
+    ? Required("IDEO_NEXUS_DATA_DIRECTORY")
+    : Environment.GetEnvironmentVariable("IDEO_NEXUS_DEV_DIRECTORY")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Ideo Solutions", "Nexus Development");
 var directory = Path.GetFullPath(dataDirectory);
+
+if (shared)
+{
+    var certificatePath = Required("IDEO_NEXUS_TLS_PFX");
+    var certificatePassword = Environment.GetEnvironmentVariable("IDEO_NEXUS_TLS_PASSWORD");
+    builder.WebHost.ConfigureKestrel(options =>
+        options.ListenAnyIP(port, https => https.UseHttps(certificatePath, certificatePassword)));
+}
+else
+{
+    // L’API sans compte reste limitée à la boucle locale et à la base de développement.
+    builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
+}
+
 Directory.CreateDirectory(directory);
 
-builder.Services.AddSingleton(new CustomerRegistry(Path.Combine(directory, "nexus-dev.sqlite")));
+builder.Services.AddSingleton(new CustomerRegistry(Path.Combine(directory, shared ? "nexus.sqlite" : "nexus-dev.sqlite")));
 builder.Services.AddSingleton(new SnapshotDestination(Path.Combine(directory, "clients.snapshot.json")));
-builder.Services.AddHostedService<SnapshotExporter>();
+if (!shared) builder.Services.AddHostedService<SnapshotExporter>();
 builder.Services.AddSingleton<AtlasRegistry>();
 
 var app = builder.Build();
 app.Services.GetRequiredService<CustomerRegistry>().Initialize();
+
+app.UseRouting();
+if (access is not null)
+    app.Use(access.AuthorizeAsync);
+
+app.MapGet("/session", (HttpContext context) =>
+{
+    var account = SharedAccess.GetAccount(context);
+    return Results.Ok(new { name = account?.Name ?? "Développement local", role = account?.Role ?? "Administrator" });
+});
 
 var clients = app.MapGroup("/clients");
 
@@ -32,7 +57,7 @@ clients.MapPost("", (CustomerName request, CustomerRegistry registry) =>
 
     var client = registry.Create(name);
     return Results.Created($"/clients/{client.Id}", client);
-});
+}).WithMetadata(NexusPermission.Edit);
 clients.MapPost("/import-biblideo", (ImportedCustomer?[] records, CustomerRegistry registry) =>
 {
     if (records.Length is < 1 or > 10000
@@ -54,10 +79,14 @@ clients.MapPut("/{id:guid}", (Guid id, CustomerEdit request, CustomerRegistry re
     return registry.Find(id) is { } current
         ? Results.Conflict(new { error = "La fiche a été modifiée. Rechargez-la avant de continuer.", current })
         : Results.NotFound();
-});
+}).WithMetadata(NexusPermission.Edit);
 
 app.Services.GetRequiredService<AtlasRegistry>().Initialize();
 app.MapAtlasLicenses();
 app.Run();
 
 static string? ValidateName(string? value) => value?.Trim() is { Length: >= 1 and <= 200 } name ? name : null;
+
+static string Required(string variable) =>
+    Environment.GetEnvironmentVariable(variable) is { Length: > 0 } value
+        ? value : throw new InvalidOperationException($"Paramètre Nexus manquant : {variable}.");

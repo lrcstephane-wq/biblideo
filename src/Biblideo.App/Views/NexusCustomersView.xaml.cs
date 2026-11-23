@@ -26,12 +26,14 @@ public partial class NexusCustomersView : UserControl
         SetEditing(false);
         try
         {
+            var session = await NexusRegistryClient.GetSessionAsync();
             var snapshot = await NexusRegistryClient.LoadCustomersAsync();
             Customers.ItemsSource = snapshot.Clients;
-            StatusText.Text = "Connecté · Registre Nexus de test";
-            SetEditing(true);
+            StatusText.Text = $"Connecté · {session.Name}";
+            SetEditing(session.CanEdit);
+            ImportButton.IsEnabled = session.CanAdminister && NexusRegistryClient.IsShared;
         }
-        catch (Exception error) when (error is System.Net.Http.HttpRequestException or OperationCanceledException)
+        catch (Exception error) when (NexusRegistryClient.ConnectionUnavailable(error))
         {
             var cached = await NexusRegistryClient.ReadCachedCustomersAsync();
             Customers.ItemsSource = cached?.Clients;
@@ -41,6 +43,7 @@ public partial class NexusCustomersView : UserControl
         }
         catch (Exception error)
         {
+            Customers.ItemsSource = null;
             StatusText.Text = $"Registre indisponible · {error.Message}";
         }
         finally

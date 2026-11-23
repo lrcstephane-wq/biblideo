@@ -13,6 +13,7 @@ public partial class AtlasLicensesView : UserControl
 {
     private string? _keyPath;
     private bool _busy;
+    private bool _canAdminister;
     private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-FR");
 
     public AtlasLicensesView()
@@ -32,16 +33,19 @@ public partial class AtlasLicensesView : UserControl
     private async Task LoadAsync(string? select)
     {
         SetBusy(true);
+        _canAdminister = false;
         try
         {
+            var session = await NexusRegistryClient.GetSessionAsync();
             var customers = await NexusRegistryClient.LoadCustomersAsync();
             var rights = await NexusRegistryClient.LoadAtlasAsync();
+            _canAdminister = session.CanAdminister;
             Customers.ItemsSource = customers.Clients;
             Licenses.ItemsSource = rights;
             Licenses.SelectedItem = rights.FirstOrDefault(right => right.Id == select);
             StatusText.Text = customers.Clients.Length == 0
                 ? "Crée d’abord une fiche dans Clients Nexus."
-                : "Connecté · Registre Atlas de test";
+                : $"Connecté · {session.Name}";
         }
         catch (Exception error)
         {
@@ -51,7 +55,8 @@ public partial class AtlasLicensesView : UserControl
         finally
         {
             _busy = false;
-            Fields.IsEnabled = Actions.IsEnabled = Licenses.ItemsSource is not null;
+            Fields.IsEnabled = _canAdminister && Licenses.ItemsSource is not null;
+            Actions.IsEnabled = Licenses.ItemsSource is not null;
             UpdateSelectionActions();
         }
     }
@@ -60,14 +65,18 @@ public partial class AtlasLicensesView : UserControl
     {
         _busy = busy;
         Licenses.IsEnabled = !busy;
-        Fields.IsEnabled = Actions.IsEnabled = !busy;
+        Fields.IsEnabled = !busy && _canAdminister;
+        Actions.IsEnabled = !busy;
+        UpdateSelectionActions();
     }
 
     private void UpdateSelectionActions()
     {
         var right = Licenses.SelectedItem as NexusAtlasRight;
-        RenewButton.IsEnabled = TransferButton.IsEnabled = ExportButton.IsEnabled = HistoryButton.IsEnabled = right is not null;
-        UpgradeButton.IsEnabled = right is { IsCreator: false };
+        CreateButton.IsEnabled = _canAdminister;
+        RenewButton.IsEnabled = TransferButton.IsEnabled = ExportButton.IsEnabled = _canAdminister && right is not null;
+        HistoryButton.IsEnabled = right is not null;
+        UpgradeButton.IsEnabled = _canAdminister && right is { IsCreator: false };
     }
 
     private void Selection_Changed(object sender, SelectionChangedEventArgs e)
@@ -82,7 +91,7 @@ public partial class AtlasLicensesView : UserControl
 
     private async void Sign_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || !Actions.IsEnabled || sender is not Button { Tag: string operation }) return;
+        if (_busy || !_canAdminister || !Actions.IsEnabled || sender is not Button { Tag: string operation }) return;
         var current = operation == "create" ? null : Licenses.SelectedItem as NexusAtlasRight;
         if (current is null && operation != "create") return;
         var customer = Customers.SelectedItem as NexusCustomer;

@@ -132,7 +132,7 @@ internal static class AtlasEndpoints
         {
             context.Response.Headers.CacheControl = "no-store";
             return registry.ReadCode(id) is { } code ? Results.Text(code, "text/plain") : Results.NotFound();
-        });
+        }).WithMetadata(NexusPermission.Administer);
         routes.MapGet("/{id}/history", (string id, AtlasRegistry registry) => registry.History(id));
         routes.MapPut("/{id}", (string id, AtlasWrite input, AtlasRegistry registry) =>
         {

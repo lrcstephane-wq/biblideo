@@ -42,7 +42,7 @@
                 </StackPanel>
             </WrapPanel>
             <WrapPanel x:Name="Actions" IsEnabled="False">
-                <Button Content="Générer une licence" Tag="create" Click="Sign_Click" Style="{StaticResource PrimaryButton}" Margin="0,0,6,6"/>
+                <Button x:Name="CreateButton" Content="Générer une licence" Tag="create" Click="Sign_Click" Style="{StaticResource PrimaryButton}" Margin="0,0,6,6"/>
                 <Button Content="Renouveler" Tag="renew" Click="Sign_Click" Margin="0,0,6,6" x:Name="RenewButton"/>
                 <Button Content="Changer de poste" Tag="transfer" Click="Sign_Click" Margin="0,0,6,6" x:Name="TransferButton"/>
                 <Button Content="Passer en Créateur" Tag="upgrade" Click="Sign_Click" Margin="0,0,6,6" x:Name="UpgradeButton"/>
